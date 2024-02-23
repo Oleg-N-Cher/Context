@@ -1,4 +1,4 @@
 CD ..\Mod
-..\Bin\context TinyCtx.ctx /w
-..\Bin\fasm.exe TinyCtx.ctx.asm TinyCtx.ctx.exe
+..\Bin\context TinyCtxWin.ctx /w
+..\Bin\fasm.exe TinyCtxWin.asm TinyCtx.exe
 PAUSE

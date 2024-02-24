@@ -1,6 +1,5 @@
-@ECHO OFF
-IF EXIST "%ProgramFiles(x86)%" GOTO vDos
-
-:vDos
-
-START vDosPlus.exe /set frame=on;window=50;autoexec=Bin\co.bat
+@Bin\tinyctx.exe
+@MOVE /Y c.com hello.bin
+@Bin\pdp11dasm.exe hello.bin
+@Bin\make-bk.exe hello 512
+@PAUSE

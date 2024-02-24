@@ -1,4 +1,0 @@
-@ECHO OFF
-CLS
-.\Bin\C.COM
-EXIT

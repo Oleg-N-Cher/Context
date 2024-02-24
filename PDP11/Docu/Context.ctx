@@ -1,13 +1,14 @@
-// Здесь приведены два исходных текста - работающий в среде DOS кросс-компилятор и компилятор, работающий в среде CP/M. Компилируемая программа должна размещаться в файле с именем C.PRG, результат компиляции записывается в файл C.COM. Версия для CP/M тестировалась в среде эмулятора MYZ80 1.24. 
+// Еще один простой компилятор для PDP-11
+// Приведенный здесь компилятор языка TinyContext является аналогом компилятора для MS-DOS и может быть скомпилирован с его помощью. Для этого нужно заменить все функции ввода-вывода от open() до halt() их аналогами, увеличить размер массива Text c 2048 символов до 16384 символов (ЭТО ВАЖНО!) и получить работающий в среде MS-DOS кросс-компилятор. Затем с его помощью получить компилятор, работающий на PDP-11 без операционной системы. Для тестирования использовался эмулятор simhv/pdp11 (PDP-11/05 с оперативной памятью 48Кб). Код компилятора и исходный текст компилируемой программы должны размещаться на перфолентах, результат компиляции также выводится на перфоленту (в среде эмулятора перфоленты имитируются файлами).
 
-  define nTEXT 16384  // Длина текстового буфера
+// Исходный текст компилятора:
 
-  char  Text  [nTEXT];
+  char  Text  [16384];
   word pText;
   word nText;
   word nLine;
 
-  byte  Code  [16384];
+  word  Code  [ 8192];
   word nCode;
 
   word hFile;
@@ -15,12 +16,12 @@
   char  Heap  [ 2048];
   word nHeap;
 
-  word  Name  [  144];
-  word  Cls   [  144];
-  word  Sub   [  144];
-  word  Type  [  144];
-  word  Size  [  144];
-  word  Ofs   [  144];
+  word  Name  [  256];
+  word  Cls   [  256];
+  word  Sub   [  256];
+  word  Type  [  256];
+  word  Size  [  256];
+  word  Ofs   [  256];
   word nName;
 
   word nData;
@@ -31,84 +32,7 @@
   char  Buff  [  128];
 
 
-  synonym  HANDLE  word
-  synonym  DWORD   word
-  synonym  BOOL    word
-
-  HANDLE GetStdHandle (DWORD  nStdHandle)             external KERNEL32;
-
-  HANDLE CreateFile (char  @lpFileName;
-                        DWORD  dwDesiredAccess;
-                        DWORD  dwShareMode;
-                        void  @SecurityAttributes;
-                        DWORD  dwCreationDistribution;
-                        DWORD  dwFlagsAndAttributes;
-                        HANDLE hTemplateFile)          external KERNEL32.CreateFileA;
-
-  BOOL ReadFile (HANDLE hFile;
-                        void  @Buff;
-                        DWORD  nNumberOfBytesToRead;
-                        DWORD @lpNumberOfBytesRead;
-                        void  @lpOverlapped)           external KERNEL32;
-
-  BOOL WriteFile (HANDLE hFile;
-                        void  @Buff;
-                        DWORD  nNumberOfBytesToWrite;
-                        DWORD @lpNumberOfBytesWritten;
-                        void  @lpOverlapped)           external KERNEL32;
-
-  BOOL CloseHandle (HANDLE hObject)                external KERNEL32;
-
-  word open (char @Name)
-    return CreateFile("c.prg",$80000000,0,NULL,3,$80,0);
-  end
-
-
-  word create (char @Name)
-    return CreateFile("c.com",$40000000,0,NULL,2,$80,0);
-  end
-
-
-  word read (word F; void @Buff; word N)
-    ReadFile(F,@Buff,N,@N,NULL);
-    return N;
-  end
-
-
-  word write (word F; void @Buff; word N)
-    WriteFile(F,@Buff,N,@N,NULL);
-    return N;
-  end
-
-
-  void close (word F)
-    CloseHandle(F);
-  end
-
-
-  void puts (char @St)
-    word   N=0;
-    while  St[N]!=#0 do
-      inc  N;
-    end
-    WriteFile(GetStdHandle($FFFFFFF5),@St,N,@N,NULL);
-  end
-
-
-  char putc (char C)
-    char s[2];
-    s[0] := C;
-    s[1] := char(0);
-    puts(@s);
-  end
-
-
-  void halt (word Code)                    // 11.02.2007
-    ExitProcess(Code);
-  end
-
-
-  word  mul (word A; word B) is
+  word  mul (word A, word B) is
     word  M:=0;
     while B >0 do
       word  T  :=A;
@@ -126,7 +50,7 @@
   end
 
 
-  word  div (word A; word B) is
+  word  div (word A, word B) is
     word  D:=0;
     while A>=B do
       word  T  :=B;
@@ -144,8 +68,64 @@
   end
 
 
-  word  mod (word A; word B) is
+  word  mod (word A, word B) is
     return A-mul(div(A,B),B);
+  end
+
+
+  word  open() is
+    inline      0xB4, 0x3D;              // mov  AH, 3DH
+    inline      0xB0, 0x00;              // mov  AL, 00H
+    inline      0xBA, 0x4A, 0xC1;        // mov  DX, @@Data+Ofs(Heap[64])
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  create() is
+    inline      0xB4, 0x3C;              // mov  AH, 03CH
+    inline      0xB9, 0x00, 0x00;        // mov  CX, 00H
+    inline      0xBA, 0x50, 0xC1;        // mov  DX, @@Data+Ofs(Heap[70])
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  read() is
+    inline      0xB4, 0x3F;              // mov  AH, 3FH
+    inline      0x8B, 0x1E, 0x08, 0xC1;  // mov  BX, word [@@DATA+Ofs(hFile)]
+    inline      0xB9, 0x00, 0x40;        // mov  CX, 16384
+    inline      0xBA, 0x00, 0x41;        // mov  DX, @@DATA+Ofs(Text)
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  write() is
+    inline      0xB4, 0x40;              // mov  AH, 40H
+    inline      0x8B, 0x1E, 0x08, 0xC1;  // mov  BX, word [@@DATA+Ofs(hFile)]
+    inline      0x8B, 0x0E, 0x06, 0xC1;  // mov  CX, word [@@DATA+Ofs(nCode)]
+    inline      0x03, 0xC9;              // add  CX, CX
+    inline      0xBA, 0x06, 0x81;        // mov  DX, @@DATA+Ofs(Code)
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  close() is
+    inline      0xB4, 0x3E;              // mov  AH, 3EH
+    inline      0x8B, 0x1E, 0x08, 0xC1;  // mov  BX, word [@@DATA+Ofs(hFile)]
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  char  putc(char C) is
+    char        C1:=C;
+    inline      0x92;                    // xchg DX, AX
+    inline      0xB4, 0x02;              // mov  AH, 2
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  halt() is
+    inline      0xB8, 0x00, 0x4C;        // mov  AX, 4C00H
+    inline      0xCD, 0x21;              // int  21H
   end
 
 
@@ -223,7 +203,21 @@
     Heap[61]:='n';
     Heap[62]:='d';
     Heap[63]:= char(0);
-    nHeap   :=64;
+
+    Heap[64]:='c';
+    Heap[65]:='.';
+    Heap[66]:='p';
+    Heap[67]:='r';
+    Heap[68]:='g';
+    Heap[69]:= char(0);
+
+    Heap[70]:='c';
+    Heap[71]:='.';
+    Heap[72]:='c';
+    Heap[73]:='o';
+    Heap[74]:='m';
+    Heap[75]:= char(0);
+    nHeap   :=76;
 
     Name[ 0]:=16;
     Cls [ 0]:= 1;
@@ -256,20 +250,23 @@
   end
 
 
-  word  Stop() is
-    close(hFile);
-
+  word  putn(word N) is
     pStk:=0;
-    while    nLine!=0 do
-      Push  (mod(nLine,10));
-      nLine:=div(nLine,10);
+    while    N!=0 do
+      Push  (mod(N,10));
+      N    :=div(N,10);
     end
 
     while pStk!=0 do
       putc(char(Pop()+48));
     end
+  end
 
-    halt(1);
+
+  word  Stop() is
+    putn (nLine);
+    close();
+    halt ();
   end
 
 
@@ -294,7 +291,9 @@
         K:=K+1;
       end
 
-      N:=mul(N,E)+K;
+      N:=mul(E,N);
+      N:=N+K;
+
       I:=I+1;
     end
 
@@ -305,7 +304,7 @@
   char  Look() is
     if pText>=nText then
       pText :=0;
-      nText := read(hFile,@Text[pText],nTEXT);
+      nText :=read();
       if pText>=nText then
         return char(0);
       end
@@ -322,6 +321,8 @@
     end
 
     pText    :=pText+1;
+
+    putc  (Ch);
 
     return Ch;
   end
@@ -350,7 +351,7 @@
   end
 
 
-  word  Digraph(char C1; char C2) is
+  word  Digraph(char C1, char C2) is
     if Buff[0]=C1 then
       if Look()=C2 then
         Buff[1]:=Read();
@@ -392,10 +393,10 @@
 
       Buff[pBuff]  :=char(0);
 
-      Digraph('<','=');
-      Digraph('!','=');
-      Digraph('>','=');
-      Digraph(':','=');
+      Digraph('<', '=');
+      Digraph('!', '=');
+      Digraph('>', '=');
+      Digraph(':', '=');
 
       if Buff[0]='/' then
         if Look()='/' then
@@ -445,67 +446,42 @@
   end
 
 
-  byte  Emi1(byte B) is
-    Code[nCode]:=B;
+  word  Emi2(word W) is
+    Code[nCode]:=W;
     nCode:=nCode+1;
   end
 
 
-  word  Emi2(word W) is
-    Emi1(mod(W,256));
-    Emi1(div(W,256));
-  end
-
-
-  word  Emi3(word P; word W) is
-    W:=W+256;
-
-    Code[P]  :=mod(W,256);
-    Code[P+1]:=div(W,256);
-  end
-
-
-  word  MkBX(word I) is
-    if Size[Type[I]]=2 then
-      Emi1(0xEB);            // xchg
-
-      Emi1(0x29);            // dad  H
-
-      Emi1(0x11);            // lxi  D, Val
-      Emi2(Ofs[I]);
-    end
-
-    if Size[Type[I]]=1 then
-      Emi1(0x21);            // lxi  H, Val
-      Emi2(Ofs[I]);
-    end
-
-    Emi1(0x19);              // dad  D
-  end
-
-
-  word  Mov (word E; word D; word I) is
-    if Size[I]=1 then
-      Emi1(0x21);            // lxi  H, Val
-      Emi2(Ofs[I]);
-    end
-
-    Emi1(E);                 // mov  E, M (mov  M, E)
-
-    if Size[Type[I]]=2 then
-      Emi1(0x23);            // inx  H
-
-      Emi1(D);               // mov  D, M (mov  M, D)
-    end
+  word  Emi3(word P, word W) is
+  //TODO
+    Code[P]    :=W;
   end
 
 
   word  Assign(word I) is
     if Size[I]>1 then
-      Emi1(0xE1);            // pop  H
+      Emi2(0x1581);          // 012601 // mov  (SP)+, R1
+
+      if Size[Type[I]]=1 then
+        Emi2(0x9031);        // 110061 // movb R0, Adr(R1)
+      end
+
+      if Size[Type[I]]=2 then
+        Emi2(0x1031);        // 010061 // mov  R0, Adr(R1)
+      end
     end
 
-    Mov (0x73,0x72,I);
+    if Size[I]=1 then
+      if Size[Type[I]]=1 then
+        Emi2(0x901F);        // 110037 // movb R0, @#Adr
+      end
+
+      if Size[Type[I]]=2 then
+        Emi2(0x101F);        // 010037 // mov  R0, @#Adr
+      end
+    end
+
+    Emi2(Ofs[I]);
   end
 
 
@@ -514,7 +490,7 @@
   //if   eFlag =0 then
       if '0'<=Buff[0] then
         if Buff[0]<='9' then
-          Emi1(0x11);        // lxi  D, Val
+          Emi2(0x15C0);      // 012700 // mov  #Val, R0
           Emi2(val());
 
           eFlag:=1;
@@ -522,7 +498,8 @@
       end
 
       if Buff[0]=''' then
-        Emi1(0x11);          // lxi  D, Val
+      //TODO 128..255
+        Emi2(0x15C0);        // 012700 // mov  #Val, R0
         Emi2(word(Read()));
 
         Read();
@@ -556,15 +533,28 @@
           Expr();
           I:=Pop();
 
-          MkBX(I);
+          if Size[Type[I]]=1 then
+            Emi2(0x9C00);    // 116000 // movb Adr(R0), R0
+          end
+
+          if Size[Type[I]]=2 then
+            Emi2(0x0CC0);    // 006300 // asl  R0
+
+            Emi2(0x1C00);    // 016000 // mov  Adr(R0), R0
+          end
         end
 
-        Mov (0x5E,0x56,I);
+        if Size[I]=1 then
+          if Size[Type[I]]=1 then
+            Emi2(0x97C0);    // 113700 // movb @#Adr, R0
+          end
 
-        if Size[Type[I]]=1 then
-          Emi1(0x16);        // mvi  D, 0
-          Emi1(0x00);
+          if Size[Type[I]]=2 then
+            Emi2(0x17C0);    // 013700 // mov  @#Adr, R0
+          end
         end
+
+        Emi2(Ofs[I]);
       end
 
       if Cls[I]=3 then
@@ -591,55 +581,45 @@
           Scan();            // )
         end
 
-        Emi1(0xCD);          // call Ofs
-        Emi2(Ofs[I]+256);
+        word W:=(0xFFFF-(((nCode+nCode)+4)-Ofs[I]))+1;
+        Emi2(0x09F7);        // 004767 // jsr  Ofs
+        Emi2(W);
       end
     end
 
     Scan();
 
-    byte Op1:=0;
-    byte Op2:=0;
+    word I:=0;
     if Buff[0]='+' then
-      Op1:=0x83;             // add  E
-      Op2:=0x8A;             // adc  D
+      I:=1;
     end
 
     if Buff[0]='-' then
-      Op1:=0x93;             // sub  E
-      Op2:=0x9A;             // sbb  D
+      I:=2;
     end
 
-    if   Op1!=0 then
-      Emi1(0xD5);            // push D
+    if   I!=0 then
+      Emi2(0x1026);          // 010046 // mov  R0, -(SP)
 
-      Push(Op1);
-      Push(Op2);
+      Push(I);
       Scan();
       Expr();
-      Op2:=Pop();
-      Op1:=Pop();
+      I:=Pop();
 
-      Emi1(0xE1);            // pop  H
+      if I=1 then
+        Emi2(0x1581);        // 012601 // mov  (SP)+, R1
 
-      Emi1(0x7D);            // mov  A, L
-      Emi1(Op1);             // op1  E
-      Emi1(0x5F);            // mov  E, A
+        Emi2(0x6040);        // 060100 // add  R0, R1
+      end
 
-      Emi1(0x7C);            // mov  A, H
-      Emi1(Op2);             // op2  D
-      Emi1(0x57);            // mov  D, A
+      if I=2 then
+        Emi2(0x1001);        // 010001 // mov  R0, R1
+
+        Emi2(0x1580);        // 012600 // mov  (SP)+, R0
+
+        Emi2(0xE040);        // 160100 // sub  R0, R1
+      end
     end
-  end
-
-
-  word  Jump(byte jCode; word jOfs) is
-    if jOfs=0 then
-      Push(nCode);
-    end
-
-    Emi1(jCode);             // jxx  Addr
-    Emi2(nCode+jOfs);
   end
 
 
@@ -647,74 +627,44 @@
     Scan();
     Expr();
 
-    word jType :=   0;
-    word jOfs1 :=   0;
-    word jCode2:=0xD2;       // jnc
+  //TODO
+    word jCode:=0;
     if Buff[0]='<' then
-      jType    :=   1;
+      jCode:=0x8700;         // 1034XX // blo  Ofs
       if Buff[1]='=' then
-        jType  :=   2;
-        jCode2 :=0xDA;       // jc
+        jCode:=0x8300;       // 1014XX // blos Ofs
       end
     end
 
     if Buff[0]='=' then
-      jType    :=   4;
-      jCode2   :=0xC2;       // jnz
+      jCode:=0x0300;         // 0014XX // beq   Ofs
     end
 
     if Buff[0]='!' then
-      jType    :=   3;
-      jOfs1    := 263;
-      jCode2   :=0xCA;       // jz
+      jCode:=0x0200;         // 0010XX // bne  Ofs
     end
 
     if Buff[0]='>' then
-      jType    :=   2;
+      jCode:=0x8200;         // 1010XX // bhi  Ofs
       if Buff[1]='=' then
-        jType  :=   1;
-        jCode2 :=0xDA;       // jc
+        jCode:=0x8600;       // 1030XX // bhis Ofs
       end
     end
 
-    if jType=0 then
+    if jCode=0 then
       Stop();
     end
 
-    Emi1(0xD5);              // push D
+    Emi2(0x1026);            // 010046 // mov  R0, -(SP)
 
     Scan();
     Expr();
 
-    Emi1(0xE1);              // pop  H
+    Emi2(0x1581);            // 012601 // mov  (SP)+, R1
 
-    if jType=1 then
-      Emi1(0x7D);            // mov  A, L
-      Emi1(0x93);            // sub  E
-      Emi1(0x7C);            // mov  A, H
-      Emi1(0x9A);            // sbb  D
-    end
+    Emi2(0xE001);            // 160001 // sub  R1, R0
 
-    if jType=2 then
-      Emi1(0x7B);            // mov  A, E
-      Emi1(0x95);            // sub  L
-      Emi1(0x7A);            // mov  A, D
-      Emi1(0x9C);            // sbb  H
-    end
-
-    if jType>=3 then
-      Emi1(0x7D);            // mov  A, L
-      Emi1(0x93);            // sub  E
-      Jump(0xC2, jOfs1);     // jnz
-      Emi1(0x7C);            // mov  A, H
-      Emi1(0x92);            // sub  D
-    end
-
-    if jType!=4 then
-      Push(nCode);
-    end
-
-    Jump  (jCode2, 0x00);
+    Emi2(jCode+2);           // bxx  2
   end
 
 
@@ -763,7 +713,11 @@
       Scan();                // ;
     end
 
-    nData      :=nData+mul(Size[nName],Size[Type[nName]]);
+    nData      :=nData+(mul(Size[Type[nName]],Size[nName]));
+    if mod(nData,2)!=0 then
+      nData    :=nData+1;
+    end
+
     nName      :=nName+1;
 
     return Buff[0];
@@ -787,6 +741,11 @@
       if Comp(37)=0 then     // if
         Cond();
 
+        Push(nCode);
+
+        Emi2(0x0077);        // 000167 // jmp  ?
+        nCode:=nCode+1;
+
         Push(nName);
 
         Scan();
@@ -797,8 +756,8 @@
 
         Hide();
 
-        Emi3(Pop()+1,nCode);
-        Emi3(Pop()+1,nCode);
+        word pSkip:=Pop();
+        Emi3(pSkip+1, (nCode+nCode)-((pSkip+pSkip)+4));
 
         rFlag:=1;            // 14.05.2006
         cFlag:=1;
@@ -811,6 +770,11 @@
 
         Cond();
 
+        Push(nCode);
+
+        Emi2(0x0077);        // 000167 // jmp  ?
+        nCode:=nCode+1;
+
         Push(nName);
 
         Scan();
@@ -821,15 +785,13 @@
 
         Hide();
 
-        word pExit2:=Pop();
-        word pExit1:=Pop();
-        word pLoop :=Pop();
+        word pExit:=Pop();
+        word pLoop:=Pop();
 
-        Emi1(0xC3);          // jmp  Ofs
-        Emi2(pLoop+256);
+        Emi2(0x0077);        // 000167 // jmp  Ofs
+        Emi2((0xFFFF-((nCode+nCode+2)-(pLoop+pLoop)))+1);
 
-        Emi3(pExit1+1,nCode);
-        Emi3(pExit2+1,nCode);
+        Emi3(pExit+1, (nCode+nCode)-((pExit+pExit)+4));
 
         rFlag:=1;            // 14.05.2006
         cFlag:=1;
@@ -841,7 +803,7 @@
         Buff[0]:=',';
         while Buff[0]=',' do
           Scan();
-          Emi1(val());       // db   Val
+          Emi2(val());       // dw   Val
 
           Scan();
         end
@@ -856,7 +818,7 @@
         Scan();
         Expr();
 
-        Emi1(0xC9);          // ret
+        Emi2(0x0087);        // 000207 // rts
 
         rFlag:=0;            // 14.05.2006
         cFlag:=1;
@@ -881,9 +843,11 @@
           Scan();
           Expr();
 
-          MkBX(I);
+          if Size[Type[I]]=2 then
+            Emi2(0x0CC0);    // 006300 // asl  R0
+          end
 
-          Emi1(0xE5);        // push H
+          Emi2(0x1026);      // 010046 // mov  R0, -(SP)
         end
 
         Scan();              // :=
@@ -904,7 +868,7 @@
   end
 
 
-  word  Func() is
+  word  Func(word Rts) is
     Scan();
     Ctrl();
     while Comp(60)!=0 do     // !end
@@ -912,7 +876,8 @@
     end
 
     if rFlag!=0 then         // 14.05.2006 // if rFlag=0 then
-      Emi1(0xC9);            // ret
+    //Emi2(0x0087);          // 000207 // rts
+      Emi2(Rts);
     end
   end
 
@@ -920,13 +885,13 @@
   begin
     Init();
 
-    hFile:=open("c.prg");
+    hFile:=open();
     pText:=0;
     nText:=0;
     nLine:=1;
 
-    Emi1(0xC3);              // jmp  ?
-    nCode:=nCode+2;
+    Emi2(0x0077);            // 000167 // jmp  ?
+    nCode:=nCode+1;
 
     Scan();
     while Comp(31)!=0 do     // !begin
@@ -935,7 +900,7 @@
       if   Ch ='(' then
         Cls [nName]:= 3;
         Sub [nName]:= 0;
-        Ofs [nName]:=nCode;
+        Ofs [nName]:=nCode+nCode;
         nName      :=nName+1;
 
         Push(nName);
@@ -950,7 +915,7 @@
         end
 
         Scan();              // is
-        Func();
+        Func(0x0087);
         Hide();
       end
 
@@ -961,18 +926,12 @@
       Scan();
     end
 
-    Emi3 (1,nCode);
-    Func ();
+    Emi3 (1, (nCode+nCode)-4);
+    Func (0x0000);
 
-    while mod(nCode,128)!=0 do
-      Emi1(0x1A);
-    end
+    close();
 
-    close(hFile);
-
-    hFile:=create("c.com");
-    if write(hFile,@Code,nCode)!=nCode then  // 11.02.207
-      Stop(); // @eWRITEERR
-    end
-    close(hFile);
+    hFile:=create();
+    write();
+    close();
   end

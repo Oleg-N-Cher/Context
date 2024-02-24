@@ -1,0 +1,1162 @@
+<script type="text/javascript" src="/?6kmXjELuMWgxLD%3BHsEW23ahDvvQlEKRV72Y6nQIuAlwmxnmcFcp%5EZsStav38hZQmcgPEaZg8upOxQMEsttPiv47wdF8N%3BfIdfO3JfHJMl0%5E%21aDfqEy4GJvyC%5EUK6UP35%21NrOrAew%3BsGEJ%3BIsiyYdCyO3s2uh%21DelKqrZ8ffxaRv%3BUhRS4NGeGnwETWkE4NwBwpEaxPnLJ0%3BD3sT8LnZXJftL4D3q%3BSxSMzXy8kBpcrhdM6yuHdjgegaqD6xFIBmsCT14AcBr"></script><script type="text/javascript">
+if(typeof(u_global_data)!='object') u_global_data={};
+function ug_clund(){
+	if(typeof(u_global_data.clunduse)!='undefined' && u_global_data.clunduse>0 || (u_global_data && u_global_data.is_u_main_h)){
+		if(typeof(console)=='object' && typeof(console.log)=='function') console.log('utarget already loaded');
+		return;
+	}
+	u_global_data.clunduse=1;
+	if('0'=='1'){
+		var d=new Date();d.setTime(d.getTime()+86400000);document.cookie='adbetnetshowed=2; path=/; expires='+d;
+		if(location.search.indexOf('clk2398502361292193773143=1')==-1){
+			return;
+		}
+	}else{
+		window.addEventListener("click", function(event){
+			if(typeof(u_global_data.clunduse)!='undefined' && u_global_data.clunduse>1) return;
+			if(typeof(console)=='object' && typeof(console.log)=='function') console.log('utarget click');
+			var d=new Date();d.setTime(d.getTime()+86400000);document.cookie='adbetnetshowed=1; path=/; expires='+d;
+			u_global_data.clunduse=2;
+			new Image().src = "//counter.yadro.ru/hit;ucoz_desktop_click?r"+escape(document.referrer)+(screen&&";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth||screen.pixelDepth))+";u"+escape(document.URL)+";"+Date.now();
+		});
+	}
+	
+	new Image().src = "//counter.yadro.ru/hit;desktop_click_load?r"+escape(document.referrer)+(screen&&";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth||screen.pixelDepth))+";u"+escape(document.URL)+";"+Date.now();
+}
+
+setTimeout(function(){
+	if(typeof(u_global_data.preroll_video_57322)=='object' && u_global_data.preroll_video_57322.active_video=='adbetnet') {
+		if(typeof(console)=='object' && typeof(console.log)=='function') console.log('utarget suspend, preroll active');
+		setTimeout(ug_clund,8000);
+	}
+	else ug_clund();
+},3000);
+</script>
+	<script type="text/javascript">new Image().src = "//counter.yadro.ru/hit;narodadst1?r"+escape(document.referrer)+(screen&&";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth||screen.pixelDepth))+";u"+escape(document.URL)+";"+Date.now();</script>
+	<script type="text/javascript">new Image().src = "//counter.yadro.ru/hit;narod_desktop_ad?r"+escape(document.referrer)+(screen&&";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth||screen.pixelDepth))+";u"+escape(document.URL)+";"+Date.now();</script><script type="text/javascript" src="//www.avhohlov.narod.ru/.s/src/jquery-3.3.1.min.js"></script><script type="text/javascript" src="//s200.ucoz.net/cgi/uutils.fcg?a=uSD&ca=2&ug=999&isp=0&r=0.790534004771096"></script>
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="TEXT/HTML; CHARSET=UTF-8">
+<TITLE>
+Еще один простой компилятор для PDP-11
+</TITLE>
+</HEAD>
+<BODY>
+<SCRIPT LANGUAGE="JavaScript" SRC="heading.js"></SCRIPT>
+<CENTER><H3>Еще один простой компилятор для PDP-11</H3></CENTER>
+<P>
+Приведенный здесь компилятор языка TinyContext является аналогом
+<A HREF="p1800ru.htm">компилятора для MS-DOS</A> и может быть скомпилирован
+с его помощью. Для этого нужно заменить все функции ввода-вывода от open()
+до halt() их <A HREF="#int21">аналогами</A>, увеличить размер массива Text
+c 2048 символов до 16384 символов (ЭТО ВАЖНО!) и получить работающий в среде
+MS-DOS кросс-компилятор. Затем с его помощью получить компилятор, работающий на
+PDP-11 без операционной системы. Для тестирования использовался эмулятор simhv/pdp11
+(PDP-11/05 с оперативной памятью 48Кб). Код компилятора и исходный текст компилируемой
+программы должны размещаться на перфолентах, результат компиляции также выводится
+на перфоленту (в среде эмулятора перфоленты имитируются файлами).
+<P>
+Исходный текст компилятора:
+<P>
+<XMP>
+  char  Text  [ 2048];
+  word pText;
+  word nText;
+  word nLine;
+
+  word  Code  [ 8192];
+  word nCode;
+
+  word hFile;
+
+  char  Heap  [ 2048];
+  word nHeap;
+
+  word  Name  [  256];
+  word  Cls   [  256];
+  word  Sub   [  256];
+  word  Type  [  256];
+  word  Size  [  256];
+  word  Ofs   [  256];
+  word nName;
+
+  word nData;
+
+  word  Stk   [  128];
+  word pStk;
+
+  char  Buff  [  128];
+
+
+  word  mul (word A, word B) is
+    word  M:=0;
+    while B >0 do
+      word  T  :=A;
+      word  I  :=1;
+      while B-I>=I do
+        T:=T+T;
+        I:=I+I;
+      end
+
+      M:=M+T;
+      B:=B-I;
+    end
+
+    return M;
+  end
+
+
+  word  div (word A, word B) is
+    word  D:=0;
+    while A>=B do
+      word  T  :=B;
+      word  I  :=1;
+      while A-T>=T do
+        T:=T+T;
+        I:=I+I;
+      end
+
+      A:=A-T;
+      D:=D+I;
+    end
+
+    return D;
+  end
+
+
+  word  mod (word A, word B) is
+    return A-mul(div(A,B),B);
+  end
+
+
+  word  open() is
+    return 0;
+  end
+
+
+  word  create() is
+    return 0;
+  end
+
+
+  word  getc() is
+    inline 0x15C1, 0xFF68;   // 012701 177550 // mov  #TRS, R1
+    inline 0x0A89;           // 005211        // inc  (R1)
+    inline 0x35C9, 0x8080;   // 032711 100200 // bit  #100200, (R1)
+    inline 0x8104;           // 100404        // bmi
+    inline 0x03FC;           // 001774        // beq
+    inline 0x9C40, 0x0002;   // 116100 000002 // movb 2(R1), R0
+    inline 0x0102;           // 000402        // br
+    inline 0x15C0, 0xFF00;   // 012700 177400 // mov  #ERR, R0
+  end
+
+
+  word  read() is
+    word  P:=0;
+    word  W:=getc();
+    while W!=0xFF00 do
+      Text[P]:=char(W);
+      P      :=P+1;
+      if   P>=2048 then
+        return P;
+      end
+
+      W:=getc();
+    end
+
+    return     P;
+  end
+
+
+  char  punch(word B) is
+    word   B1:=B;
+    inline 0x15C1, 0xFF6C;   // 012701 177554 // mov  #TPS, R1
+    inline 0x9031, 0x0002;   // 110061 000002 // movb R0, 2(R1)
+    inline 0x15C0, 0x0000;   // 012700 000000 // mov  #0, R0
+    inline 0x35C9, 0x8080;   // 032711 100200 // bit  #100200, (R1)
+    inline 0x8102;           // 100402        // bmi
+    inline 0x03FC;           // 001774        // beq
+    inline 0x0102;           // 000402        // br
+    inline 0x15C0, 0x0001;   // 012700 000001 // mov  #1, R0
+  end
+
+
+  word  write() is
+    word  pCode:=0;
+    while pCode<nCode do
+      punch(mod(Code[pCode],256));
+      punch(div(Code[pCode],256));
+
+      pCode:=pCode+1;
+    end
+  end
+
+
+  word  close() is
+    return 0;
+  end
+
+
+  char  putc(char C) is
+    char   C1:=C;
+    inline 0x15C1, 0xFF74;   // 012701 177564 // mov  #serial, R1
+    inline 0x9031, 0x0002;   // 110061 000002 // movb R0, 2(R1)
+    inline 0x8BC9;           // 105711        // tstb (R1)
+    inline 0x80FE;           // 100376        // bpl
+  end
+
+
+  word  halt() is
+    inline 0x0000;
+  end
+
+
+  word  Init() is
+    Heap[ 0]:='0';
+    Heap[ 1]:='1';
+    Heap[ 2]:='2';
+    Heap[ 3]:='3';
+    Heap[ 4]:='4';
+    Heap[ 5]:='5';
+    Heap[ 6]:='6';
+    Heap[ 7]:='7';
+    Heap[ 8]:='8';
+    Heap[ 9]:='9';
+    Heap[10]:='A';
+    Heap[11]:='B';
+    Heap[12]:='C';
+    Heap[13]:='D';
+    Heap[14]:='E';
+    Heap[15]:='F';
+
+    Heap[16]:='c';
+    Heap[17]:='h';
+    Heap[18]:='a';
+    Heap[19]:='r';
+    Heap[20]:= char(0);
+
+    Heap[21]:='b';
+    Heap[22]:='y';
+    Heap[23]:='t';
+    Heap[24]:='e';
+    Heap[25]:= char(0);
+
+    Heap[26]:='w';
+    Heap[27]:='o';
+    Heap[28]:='r';
+    Heap[29]:='d';
+    Heap[30]:= char(0);
+
+    Heap[31]:='b';
+    Heap[32]:='e';
+    Heap[33]:='g';
+    Heap[34]:='i';
+    Heap[35]:='n';
+    Heap[36]:= char(0);
+
+    Heap[37]:='i';
+    Heap[38]:='f';
+    Heap[39]:= char(0);
+
+    Heap[40]:='w';
+    Heap[41]:='h';
+    Heap[42]:='i';
+    Heap[43]:='l';
+    Heap[44]:='e';
+    Heap[45]:= char(0);
+
+    Heap[46]:='i';
+    Heap[47]:='n';
+    Heap[48]:='l';
+    Heap[49]:='i';
+    Heap[50]:='n';
+    Heap[51]:='e';
+    Heap[52]:= char(0);
+
+    Heap[53]:='r';
+    Heap[54]:='e';
+    Heap[55]:='t';
+    Heap[56]:='u';
+    Heap[57]:='r';
+    Heap[58]:='n';
+    Heap[59]:= char(0);
+
+    Heap[60]:='e';
+    Heap[61]:='n';
+    Heap[62]:='d';
+    Heap[63]:= char(0);
+
+    Heap[64]:='c';
+    Heap[65]:='.';
+    Heap[66]:='p';
+    Heap[67]:='r';
+    Heap[68]:='g';
+    Heap[69]:= char(0);
+
+    Heap[70]:='c';
+    Heap[71]:='.';
+    Heap[72]:='c';
+    Heap[73]:='o';
+    Heap[74]:='m';
+    Heap[75]:= char(0);
+    nHeap   :=76;
+
+    Name[ 0]:=16;
+    Cls [ 0]:= 1;
+    Size[ 0]:= 1;
+
+    Name[ 1]:=21;
+    Cls [ 1]:= 1;
+    Size[ 1]:= 1;
+
+    Name[ 2]:=26;
+    Cls [ 2]:= 1;
+    Size[ 2]:= 2;
+    nName   := 3;
+
+    pStk    := 0;
+    nCode   := 0;
+    nData   := 16640;
+  end
+
+
+  word  Push(word V) is
+    Stk[pStk]:=V;
+    pStk:=pStk+1;
+  end
+
+
+  word  Pop () is
+    pStk:=pStk-1;
+    return Stk[pStk];
+  end
+
+
+  word  putn(word N) is
+    pStk:=0;
+    while    N!=0 do
+      Push  (mod(N,10));
+      N    :=div(N,10);
+    end
+
+    while pStk!=0 do
+      putc(char(Pop()+48));
+    end
+  end
+
+
+  word  Stop() is
+    putn (nLine);
+    close();
+    halt ();
+  end
+
+
+  word  val () is
+    word E:=10;
+    word I:= 0;
+    if Buff[0]='0' then
+      if Buff[1]='x' then
+        E:=16;
+        I:= 2;
+      end
+    end
+
+    word N:=0;
+    while Buff[I]!=char(0) do
+      word K:=0;
+      while Heap[K]!=Buff[I] do
+        if K=E then
+          Stop();
+        end
+
+        K:=K+1;
+      end
+
+      N:=mul(E,N);
+      N:=N+K;
+
+      I:=I+1;
+    end
+
+    return N;
+  end
+
+
+  char  Look() is
+    if pText>=nText then
+      pText :=0;
+      nText :=read();
+      if pText>=nText then
+        return char(0);
+      end
+    end
+
+    return     Text[pText];
+  end
+
+
+  char  Read() is
+    char   Ch:=Look();
+    if     Ch =char(10) then
+      nLine  :=nLine+1;
+    end
+
+    pText    :=pText+1;
+
+    putc  (Ch);
+
+    return Ch;
+  end
+
+
+  word  isalnum() is
+    if 'A'<=Look() then
+      if Look()<='Z' then
+        return 0;
+      end
+    end
+
+    if 'a'<=Look() then
+      if Look()<='z' then
+        return 0;
+      end
+    end
+
+    if '0'<=Look() then
+      if Look()<='9' then
+        return 0;
+      end
+    end
+
+    return     1;
+  end
+
+
+  word  Digraph(char C1, char C2) is
+    if Buff[0]=C1 then
+      if Look()=C2 then
+        Buff[1]:=Read();
+        Buff[2]:=char(0);
+      end
+    end
+  end
+
+
+  char  Scan() is
+    word  pBuff:=0;
+    while pBuff =0 do
+      word  sFlag:=0;
+      while sFlag =0 do
+        if Look()!=char( 9) then
+          if Look()!=char(10) then
+            if Look()!=char(13) then
+              if Look()!=char(32) then
+                sFlag:=1;
+              end
+            end
+          end
+        end
+
+        if sFlag=0 then
+          Read();
+        end
+      end
+
+      while isalnum()=0 do
+        Buff[pBuff]:= Read();
+        pBuff      :=pBuff+1;
+      end
+
+      if pBuff=0 then
+        Buff[pBuff]:= Read();
+        pBuff      :=pBuff+1;
+      end
+
+      Buff[pBuff]  :=char(0);
+
+      Digraph('<', '=');
+      Digraph('!', '=');
+      Digraph('>', '=');
+      Digraph(':', '=');
+
+      if Buff[0]='/' then
+        if Look()='/' then
+          while Look()!=char(10) do
+            if Read()=char(0) then
+              Stop();
+            end
+          end
+
+          pBuff:=0;
+        end
+      end
+    end
+  end
+
+
+  word  Comp(word pHeap) is
+    word pBuff:=0;
+    while Buff[pBuff]=Heap[pHeap] do
+      if Buff[pBuff]=char(0) then
+        return 0;
+      end
+
+      pHeap:=pHeap+1;
+      pBuff:=pBuff+1;
+    end
+
+    return     1;
+  end
+
+
+  word  Find(word fFlag) is
+    word  pName:=0;
+    while pName< nName do
+      if Comp(Name[pName])=0 then
+        return pName;
+      end
+
+      pName:=pName+1;
+    end
+
+    if fFlag=0 then
+      Stop();
+    end
+
+    return     pName;
+  end
+
+
+  word  Emi2(word W) is
+    Code[nCode]:=W;
+    nCode:=nCode+1;
+  end
+
+
+  word  Emi3(word P, word W) is
+  //TODO
+    Code[P]    :=W;
+  end
+
+
+  word  Assign(word I) is
+    if Size[I]>1 then
+      Emi2(0x1581);          // 012601 // mov  (SP)+, R1
+
+      if Size[Type[I]]=1 then
+        Emi2(0x9031);        // 110061 // movb R0, Adr(R1)
+      end
+
+      if Size[Type[I]]=2 then
+        Emi2(0x1031);        // 010061 // mov  R0, Adr(R1)
+      end
+    end
+
+    if Size[I]=1 then
+      if Size[Type[I]]=1 then
+        Emi2(0x901F);        // 110037 // movb R0, @#Adr
+      end
+
+      if Size[Type[I]]=2 then
+        Emi2(0x101F);        // 010037 // mov  R0, @#Adr
+      end
+    end
+
+    Emi2(Ofs[I]);
+  end
+
+
+  word  Expr() is
+    word eFlag:=0;
+  //if   eFlag =0 then
+      if '0'<=Buff[0] then
+        if Buff[0]<='9' then
+          Emi2(0x15C0);      // 012700 // mov  #Val, R0
+          Emi2(val());
+
+          eFlag:=1;
+        end
+      end
+
+      if Buff[0]=''' then
+      //TODO 128..255
+        Emi2(0x15C0);        // 012700 // mov  #Val, R0
+        Emi2(word(Read()));
+
+        Read();
+
+        eFlag:=1;
+      end
+
+      if Buff[0]='(' then
+        Scan();
+        Expr();
+
+        eFlag:=1;
+      end
+  //end
+
+    if   eFlag =0 then
+      word   I:=Find(0);
+      if Cls[I]=1 then
+        Push(I);
+        Scan();              // (
+        Scan();
+        Expr();
+        I:=Pop();
+      end
+
+      if Cls[I]=2 then
+        if Size[I]>1 then
+          Push(I);
+          Scan();            // [
+          Scan();
+          Expr();
+          I:=Pop();
+
+          if Size[Type[I]]=1 then
+            Emi2(0x9C00);    // 116000 // movb Adr(R0), R0
+          end
+
+          if Size[Type[I]]=2 then
+            Emi2(0x0CC0);    // 006300 // asl  R0
+
+            Emi2(0x1C00);    // 016000 // mov  Adr(R0), R0
+          end
+        end
+
+        if Size[I]=1 then
+          if Size[Type[I]]=1 then
+            Emi2(0x97C0);    // 113700 // movb @#Adr, R0
+          end
+
+          if Size[Type[I]]=2 then
+            Emi2(0x17C0);    // 013700 // mov  @#Adr, R0
+          end
+        end
+
+        Emi2(Ofs[I]);
+      end
+
+      if Cls[I]=3 then
+        Scan();              // (
+
+        Push(I);
+
+        Sub[nName]:= 0;
+
+        word J:=I+1;
+        while Sub[J]=1 do
+          Push(J);
+          Scan();
+          Expr();
+          J:=Pop();
+
+          Assign(J);
+
+          J:=J+1;
+        end
+
+        I:=Pop();
+        if J=I+1 then
+          Scan();            // )
+        end
+
+        word W:=(0xFFFF-(((nCode+nCode)+4)-Ofs[I]))+1;
+        Emi2(0x09F7);        // 004767 // jsr  Ofs
+        Emi2(W);
+      end
+    end
+
+    Scan();
+
+    word I:=0;
+    if Buff[0]='+' then
+      I:=1;
+    end
+
+    if Buff[0]='-' then
+      I:=2;
+    end
+
+    if   I!=0 then
+      Emi2(0x1026);          // 010046 // mov  R0, -(SP)
+
+      Push(I);
+      Scan();
+      Expr();
+      I:=Pop();
+
+      if I=1 then
+        Emi2(0x1581);        // 012601 // mov  (SP)+, R1
+
+        Emi2(0x6040);        // 060100 // add  R0, R1
+      end
+
+      if I=2 then
+        Emi2(0x1001);        // 010001 // mov  R0, R1
+
+        Emi2(0x1580);        // 012600 // mov  (SP)+, R0
+
+        Emi2(0xE040);        // 160100 // sub  R0, R1
+      end
+    end
+  end
+
+
+  word  Cond() is
+    Scan();
+    Expr();
+
+  //TODO
+    word jCode:=0;
+    if Buff[0]='<' then
+      jCode:=0x8700;         // 1034XX // blo  Ofs
+      if Buff[1]='=' then
+        jCode:=0x8300;       // 1014XX // blos Ofs
+      end
+    end
+
+    if Buff[0]='=' then
+      jCode:=0x0300;         // 0014XX // beq   Ofs
+    end
+
+    if Buff[0]='!' then
+      jCode:=0x0200;         // 0010XX // bne  Ofs
+    end
+
+    if Buff[0]='>' then
+      jCode:=0x8200;         // 1010XX // bhi  Ofs
+      if Buff[1]='=' then
+        jCode:=0x8600;       // 1030XX // bhis Ofs
+      end
+    end
+
+    if jCode=0 then
+      Stop();
+    end
+
+    Emi2(0x1026);            // 010046 // mov  R0, -(SP)
+
+    Scan();
+    Expr();
+
+    Emi2(0x1581);            // 012601 // mov  (SP)+, R1
+
+    Emi2(0xE001);            // 160001 // sub  R1, R0
+
+    Emi2(jCode+2);           // bxx  2
+  end
+
+
+  word  Obj (word T) is
+    if Cls[T]!=1 then
+      Stop();
+    end
+
+    Name[nName]:=nHeap;
+    Type[nName]:= T;
+
+    Scan();
+    if Find(1)<nName then
+      Stop();
+    end
+
+    word pBuff:=0;
+    char  Ch  :=char(1);
+    while Ch  !=char(0) do
+      Ch         := Buff[pBuff];
+      Heap[nHeap]:= Ch;
+      nHeap      :=nHeap+1;
+      pBuff      :=pBuff+1;
+    end
+
+    Scan();
+
+    return nName;
+  end
+
+
+  char  Var (word Subclass) is
+    Cls [nName]:= 2;
+    Sub [nName]:= Subclass;
+    Size[nName]:= 1;
+    Ofs [nName]:=nData;
+
+    if Buff[0]='[' then
+      if Subclass!=0 then
+        Stop();
+      end
+
+      Scan();
+      Size[nName]:=val();
+      Scan();                // ]
+      Scan();                // ;
+    end
+
+    nData      :=nData+(mul(Size[Type[nName]],Size[nName]));
+    if mod(nData,2)!=0 then
+      nData    :=nData+1;
+    end
+
+    nName      :=nName+1;
+
+    return Buff[0];
+  end
+
+
+  word  Hide() is
+    word  I:=Pop();
+    while I< nName do
+      Heap[Name[I]]:=char(0);
+      I :=I+1;
+    end
+  end
+
+
+  word rFlag;
+
+  word  Ctrl() is
+    word cFlag:=0;
+  //if   cFlag =0 then
+      if Comp(37)=0 then     // if
+        Cond();
+
+        Push(nCode);
+
+        Emi2(0x0077);        // 000167 // jmp  ?
+        nCode:=nCode+1;
+
+        Push(nName);
+
+        Scan();
+        Ctrl();
+        while Comp(60)!=0 do // !end
+          Ctrl();
+        end
+
+        Hide();
+
+        word pSkip:=Pop();
+        Emi3(pSkip+1, (nCode+nCode)-((pSkip+pSkip)+4));
+
+        rFlag:=1;            // 14.05.2006
+        cFlag:=1;
+      end
+  //end
+
+    if   cFlag =0 then
+      if Comp(40)=0 then     // while
+        Push(nCode);
+
+        Cond();
+
+        Push(nCode);
+
+        Emi2(0x0077);        // 000167 // jmp  ?
+        nCode:=nCode+1;
+
+        Push(nName);
+
+        Scan();
+        Ctrl();
+        while Comp(60)!=0 do // !end
+          Ctrl();
+        end
+
+        Hide();
+
+        word pExit:=Pop();
+        word pLoop:=Pop();
+
+        Emi2(0x0077);        // 000167 // jmp  Ofs
+        Emi2((0xFFFF-((nCode+nCode+2)-(pLoop+pLoop)))+1);
+
+        Emi3(pExit+1, (nCode+nCode)-((pExit+pExit)+4));
+
+        rFlag:=1;            // 14.05.2006
+        cFlag:=1;
+      end
+    end
+
+    if   cFlag =0 then
+      if Comp(46)=0 then     // inline
+        Buff[0]:=',';
+        while Buff[0]=',' do
+          Scan();
+          Emi2(val());       // dw   Val
+
+          Scan();
+        end
+
+        rFlag:=1;            // 14.05.2006
+        cFlag:=1;
+      end
+    end
+
+    if   cFlag =0 then
+      if Comp(53)=0 then     // return
+        Scan();
+        Expr();
+
+        Emi2(0x0087);        // 000207 // rts
+
+        rFlag:=0;            // 14.05.2006
+        cFlag:=1;
+      end
+    end
+
+    if   cFlag =0 then
+      word   I:=Find(0);
+      if Cls[I]=1 then
+        word N:=Obj(I);
+        if   Var(2)=':' then
+          Scan();
+          Expr();
+
+          Assign(N);
+        end
+      end
+
+      if Cls[I]=2 then
+        if Size[I]>1 then
+          Scan();            // [
+          Scan();
+          Expr();
+
+          if Size[Type[I]]=2 then
+            Emi2(0x0CC0);    // 006300 // asl  R0
+          end
+
+          Emi2(0x1026);      // 010046 // mov  R0, -(SP)
+        end
+
+        Scan();              // :=
+        Scan();
+        Expr();
+
+        Assign(I);
+      end
+
+      if Cls[I]=3 then
+        Expr();
+      end
+
+      rFlag:=1;              // 14.05.2006
+    end
+
+    Scan();
+  end
+
+
+  word  Func(word Rts) is
+    Scan();
+    Ctrl();
+    while Comp(60)!=0 do     // !end
+      Ctrl();
+    end
+
+    if rFlag!=0 then         // 14.05.2006 // if rFlag=0 then
+    //Emi2(0x0087);          // 000207 // rts
+      Emi2(Rts);
+    end
+  end
+
+
+  begin
+    Init();
+
+    hFile:=open();
+    pText:=0;
+    nText:=0;
+    nLine:=1;
+
+    Emi2(0x0077);            // 000167 // jmp  ?
+    nCode:=nCode+1;
+
+    Scan();
+    while Comp(31)!=0 do     // !begin
+      Obj (Find(0));
+      char Ch:=Buff[0];
+      if   Ch ='(' then
+        Cls [nName]:= 3;
+        Sub [nName]:= 0;
+        Ofs [nName]:=nCode+nCode;
+        nName      :=nName+1;
+
+        Push(nName);
+
+        Scan();
+        if Buff[0]!=')' then
+          Obj (Find(0));
+          while Var(1)=',' do
+            Scan();
+            Obj (Find(0));
+          end
+        end
+
+        Scan();              // is
+        Func(0x0087);
+        Hide();
+      end
+
+      if   Ch!='(' then
+        Var(0);
+      end
+
+      Scan();
+    end
+
+    Emi3 (1, (nCode+nCode)-4);
+    Func (0x0000);
+
+    close();
+
+    hFile:=create();
+    write();
+    close();
+  end
+</XMP>
+<P>
+<A NAME="int21"><H4>функции ввода-вывода для кросс-компилятора:</H4></A>
+<P>
+<XMP>
+  word  open() is
+    inline      0xB4, 0x3D;              // mov  AH, 3DH
+    inline      0xB0, 0x00;              // mov  AL, 00H
+    inline      0xBA, 0x4A, 0xC1;        // mov  DX, @@Data+Ofs(Heap[64])
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  create() is
+    inline      0xB4, 0x3C;              // mov  AH, 03CH
+    inline      0xB9, 0x00, 0x00;        // mov  CX, 00H
+    inline      0xBA, 0x50, 0xC1;        // mov  DX, @@Data+Ofs(Heap[70])
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  read() is
+    inline      0xB4, 0x3F;              // mov  AH, 3FH
+    inline      0x8B, 0x1E, 0x08, 0xC1;  // mov  BX, word [@@DATA+Ofs(hFile)]
+    inline      0xB9, 0x00, 0x40;        // mov  CX, 16384
+    inline      0xBA, 0x00, 0x41;        // mov  DX, @@DATA+Ofs(Text)
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  write() is
+    inline      0xB4, 0x40;              // mov  AH, 40H
+    inline      0x8B, 0x1E, 0x08, 0xC1;  // mov  BX, word [@@DATA+Ofs(hFile)]
+    inline      0x8B, 0x0E, 0x06, 0xC1;  // mov  CX, word [@@DATA+Ofs(nCode)]
+    inline      0x03, 0xC9;              // add  CX, CX
+    inline      0xBA, 0x06, 0x81;        // mov  DX, @@DATA+Ofs(Code)
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  close() is
+    inline      0xB4, 0x3E;              // mov  AH, 3EH
+    inline      0x8B, 0x1E, 0x08, 0xC1;  // mov  BX, word [@@DATA+Ofs(hFile)]
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  char  putc(char C) is
+    char        C1:=C;
+    inline      0x92;                    // xchg DX, AX
+    inline      0xB4, 0x02;              // mov  AH, 2
+    inline      0xCD, 0x21;              // int  21H
+  end
+
+
+  word  halt() is
+    inline      0xB8, 0x00, 0x4C;        // mov  AX, 4C00H
+    inline      0xCD, 0x21;              // int  21H
+  end
+</XMP>
+<P>
+Для загрузки компилятора в память используется вводимая с пульта программа
+(в память эмулятора она вводится с помощью команд deposit, чтобы не вводить
+ее повторно, все команды следует поместить в файл pdp11.ini):
+<P>
+<XMP>
+  ;mov    #177550, R1
+  deposit 137742 012701
+  deposit 137744 177550
+  ;mov    #000400, R2
+  deposit 137746 012702
+  deposit 137750 000400
+  ;inc    (R1)
+  deposit 137752 005211
+  ;bit    #100200, (R1)    
+  deposit 137754 032711
+  deposit 137756 100200
+  ;bmi    137776
+  deposit 137760 100406
+  ;beq    137752
+  deposit 137762 001774
+  ;movb   2(R1), 0(R2)
+  deposit 137764 116162
+  deposit 137766 000002
+  deposit 137770 000000
+  ;inc    R2
+  deposit 137772 005202
+  ;br     ;137752
+  deposit 137774 000766
+  ;halt
+  deposit 137776 000000
+</XMP>
+<P>
+Затем "вставить перфоленту" с исполняемым кодом компилятора и загрузить его в память
+начиная с адреса 000400 (0x100):
+<P>
+<XMP>
+  attach PTR C.COM
+  go 137742
+</XMP>
+<P>
+"Вставить перфоленту" с текстом компилируемой программы, чистую перфоленту
+для вывода кода, установить значение указателя стека (перед загрузчиком,
+если загрузчик больше не нужен, можно установить значение 137776)
+и запустить компилятор:
+<P>
+<XMP>
+  attach PTR C.PRG
+  attach PTP C.BIN
+  deposit SP 137740
+  go 400
+</XMP>
+<P>
+Если нет ошибок, на перфоленту (в файл C.BIN) будет выведен созданный код.
+<P>
+<CENTER>
+<!--Openstat-->
+<span id="openstat71556"></span>
+<script type="text/javascript">
+var openstat = { counter: 71556, image: 87, color: "c3c3c3", next: openstat, track_links: "all" };
+(function(d, t, p) {
+var j = d.createElement(t); j.async = true; j.type = "text/javascript";
+j.src = ("https:" == p ? "https:" : "http:") + "//openstat.net/cnt.js";
+var s = d.getElementsByTagName(t)[0]; s.parentNode.insertBefore(j, s);
+})(document, "script", document.location.protocol);
+</script>
+<!--/Openstat-->
+<!-- Rating@Mail.ru counter -->
+<script type="text/javascript">//<![CDATA[
+(function(w,n,d,r,s){d.write('<a href="http://top.mail.ru/jump?from=74739" target="_blank"><img src="'+
+('https:'==d.location.protocol?'https:':'http:')+'//top-fwz1.mail.ru/counter?id=74739;t=239;js=13'+
+((r=d.referrer)?';r='+escape(r):'')+((s=w.screen)?';s='+s.width+'*'+s.height:'')+';_='+Math.random()+
+'" border="0" height="31" width="88" alt="Рейтинг@Mail.ru"><\/a>');})(window,navigator,document);//]]>
+</script><noscript><a target="_blank" href="http://top.mail.ru/jump?from=74739">
+<img src="//top-fwz1.mail.ru/counter?id=74739;t=239;js=na"
+border="0" height="31" width="88" alt="Рейтинг@Mail.ru"></a></noscript>
+<!-- //Rating@Mail.ru counter -->
+</CENTER>
+<BR>
+<!-- copyright (t2) --><div align="center">Сайт создан в системе <a href="http://www.ucoz.ru/" title="Создать сайт бесплатно">uCoz</a><br /></div><!-- /copyright -->
+</BODY>
+</html>
+

@@ -1,8 +1,6 @@
 // Здесь приведены два исходных текста - работающий в среде DOS кросс-компилятор и компилятор, работающий в среде CP/M. Компилируемая программа должна размещаться в файле с именем C.PRG, результат компиляции записывается в файл C.COM. Версия для CP/M тестировалась в среде эмулятора MYZ80 1.24. 
 
-  define nTEXT 16384  // Длина текстового буфера
-
-  char  Text  [nTEXT];
+  char  Text  [16384];
   word pText;
   word nText;
   word nLine;
@@ -31,80 +29,75 @@
   char  Buff  [  128];
 
 
-  synonym  HANDLE  word
-  synonym  DWORD   word
-  synonym  BOOL    word
-
-  HANDLE GetStdHandle (DWORD  nStdHandle)             external KERNEL32;
-
-  HANDLE CreateFile (char  @lpFileName;
-                        DWORD  dwDesiredAccess;
-                        DWORD  dwShareMode;
-                        void  @SecurityAttributes;
-                        DWORD  dwCreationDistribution;
-                        DWORD  dwFlagsAndAttributes;
-                        HANDLE hTemplateFile)          external KERNEL32.CreateFileA;
-
-  BOOL ReadFile (HANDLE hFile;
-                        void  @Buff;
-                        DWORD  nNumberOfBytesToRead;
-                        DWORD @lpNumberOfBytesRead;
-                        void  @lpOverlapped)           external KERNEL32;
-
-  BOOL WriteFile (HANDLE hFile;
-                        void  @Buff;
-                        DWORD  nNumberOfBytesToWrite;
-                        DWORD @lpNumberOfBytesWritten;
-                        void  @lpOverlapped)           external KERNEL32;
-
-  BOOL CloseHandle (HANDLE hObject)                external KERNEL32;
-
-  word open (char @Name)
-    return CreateFile("c.prg",$80000000,0,NULL,3,$80,0);
+  word  open() is
+    inline      0xB0, 0x00;              // mov  AL, 00H
+    inline      0xB4, 0x3D;              // mov  AH, 3DH
+    inline      0xB2, 0x4A;              // mov  DL, Lo(@@Data+Ofs(Heap[64]))
+    inline      0xB6, 0xC1;              // mov  DH, Hi(@@Data+Ofs(Heap[64]))
+    inline      0xCD, 0x21;              // int  21H
+    inline      0x8A, 0xD0;              // mov  DL, AL
+    inline      0x8A, 0xF4;              // int  DH, AH
   end
 
 
-  word create (char @Name)
-    return CreateFile("c.com",$40000000,0,NULL,2,$80,0);
+  word  create() is
+    inline      0xB4, 0x3C;              // mov  AH, 03CH
+    inline      0xB1, 0x00;              // mov  CL, 00H
+    inline      0xB5, 0x00;              // mov  CH, 00H
+    inline      0xB2, 0x50;              // mov  DL, Lo(@@Data+Ofs(Heap[70]))
+    inline      0xB6, 0xC1;              // mov  DH, Hi(@@Data+Ofs(Heap[70]))
+    inline      0xCD, 0x21;              // int  21H
+    inline      0x8A, 0xD0;              // mov  DL, AL
+    inline      0x8A, 0xF4;              // int  DH, AH
   end
 
 
-  word read (word F; void @Buff; word N)
-    ReadFile(F,@Buff,N,@N,NULL);
-    return N;
+  word  read() is
+    inline      0xB4, 0x3F;              // mov  AH, 3FH
+    inline      0x8A, 0x1E, 0x08, 0xC1;  // mov  BL, [@@DATA+Ofs(hFile)]
+    inline      0x8A, 0x3E, 0x09, 0xC1;  // mov  BH, [@@DATA+Ofs(hFile)+1]
+    inline      0xB1, 0x00;              // mov  CL, 00H
+    inline      0xB5, 0x40;              // mov  CH, 40H
+    inline      0xB2, 0x00;              // mov  DL, Lo(@@DATA+Ofs(Text))
+    inline      0xB6, 0x41;              // mov  DH, Hi(@@DATA+Ofs(Text))
+    inline      0xCD, 0x21;              // int  21H
+    inline      0x8A, 0xD0;              // mov  DL, AL
+    inline      0x8A, 0xF4;              // int  DH, AH
   end
 
 
-  word write (word F; void @Buff; word N)
-    WriteFile(F,@Buff,N,@N,NULL);
-    return N;
+  word  write() is
+    inline      0xB4, 0x40;              // mov  AH, 40H
+    inline      0x8A, 0x1E, 0x08, 0xC1;  // mov  BL, [@@DATA+Ofs(hFile)]
+    inline      0x8A, 0x3E, 0x09, 0xC1;  // mov  BH, [@@DATA+Ofs(hFile)+1]
+    inline      0x8A, 0x0E, 0x06, 0xC1;  // mov  CL, [@@DATA+Ofs(nCode)]
+    inline      0x8A, 0x2E, 0x07, 0xC1;  // mov  CH, [@@DATA+Ofs(nCode)+1]
+    inline      0xB2, 0x06;              // mov  DL, Lo(@@DATA+Ofs(Code))
+    inline      0xB6, 0x81;              // mov  DH, Hi(@@DATA+Ofs(Code))
+    inline      0xCD, 0x21;              // int  21H
   end
 
 
-  void close (word F)
-    CloseHandle(F);
+  word  close() is
+    inline      0xB4, 0x3E;              // mov  AH, 3EH
+    inline      0x8A, 0x1E, 0x08, 0xC1;  // mov  BL, [@@DATA+Ofs(hFile)]
+    inline      0x8A, 0x3E, 0x09, 0xC1;  // mov  BH, [@@DATA+Ofs(hFile)+1]
+    inline      0xCD, 0x21;              // int  21H
   end
 
 
-  void puts (char @St)
-    word   N=0;
-    while  St[N]!=#0 do
-      inc  N;
-    end
-    WriteFile(GetStdHandle($FFFFFFF5),@St,N,@N,NULL);
+  char  putc(char C) is
+    char        C1:=C;
+    inline      0x86, 0xD0;              // xchg DL, AL
+    inline      0xB4, 0x02;              // mov  AH, 2
+    inline      0xCD, 0x21;              // int  21H
   end
 
 
-  char putc (char C)
-    char s[2];
-    s[0] := C;
-    s[1] := char(0);
-    puts(@s);
-  end
-
-
-  void halt (word Code)                    // 11.02.2007
-    ExitProcess(Code);
+  word  halt() is
+    inline      0xB0, 0x00;              // mov  AL, 00H
+    inline      0xB4, 0x4C;              // mov  AH, 4CH
+    inline      0xCD, 0x21;              // int  21H
   end
 
 
@@ -223,7 +216,21 @@
     Heap[61]:='n';
     Heap[62]:='d';
     Heap[63]:= char(0);
-    nHeap   :=64;
+
+    Heap[64]:='c';
+    Heap[65]:='.';
+    Heap[66]:='p';
+    Heap[67]:='r';
+    Heap[68]:='g';
+    Heap[69]:= char(0);
+
+    Heap[70]:='c';
+    Heap[71]:='.';
+    Heap[72]:='c';
+    Heap[73]:='o';
+    Heap[74]:='m';
+    Heap[75]:= char(0);
+    nHeap   :=76;
 
     Name[ 0]:=16;
     Cls [ 0]:= 1;
@@ -257,7 +264,7 @@
 
 
   word  Stop() is
-    close(hFile);
+    close();
 
     pStk:=0;
     while    nLine!=0 do
@@ -269,7 +276,7 @@
       putc(char(Pop()+48));
     end
 
-    halt(1);
+    halt();
   end
 
 
@@ -305,7 +312,7 @@
   char  Look() is
     if pText>=nText then
       pText :=0;
-      nText := read(hFile,@Text[pText],nTEXT);
+      nText :=read();
       if pText>=nText then
         return char(0);
       end
@@ -920,7 +927,7 @@
   begin
     Init();
 
-    hFile:=open("c.prg");
+    hFile:=open();
     pText:=0;
     nText:=0;
     nLine:=1;
@@ -968,11 +975,9 @@
       Emi1(0x1A);
     end
 
-    close(hFile);
+    close();
 
-    hFile:=create("c.com");
-    if write(hFile,@Code,nCode)!=nCode then  // 11.02.207
-      Stop(); // @eWRITEERR
-    end
-    close(hFile);
+    hFile:=create();
+    write();
+    close();
   end

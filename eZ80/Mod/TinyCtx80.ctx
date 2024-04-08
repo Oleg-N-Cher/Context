@@ -929,8 +929,15 @@
     nText:=0;
     nLine:=1;
 
-    Emi1(0xC3);              // jmp  ?
+    Emi1(0xC3);       // jp start
     nCode:=nCode+2;
+
+    while nCode!=64 do Emi1(0x00); end  // .align 64
+    Emi1(byte('M'));  // MOS header
+    Emi1(byte('O'));
+    Emi1(byte('S'));
+    Emi1(0x00);
+    Emi1(0x00);  // run mode (0: Z80, 1: ADL)
 
     Scan();
     while Comp(31)!=0 do     // !begin
@@ -955,6 +962,9 @@
 
         Scan();              // is
         Func();
+        if rFlag!=0 then     // 14.05.2006 // if rFlag=0 then
+          Emi1(0xC9);        // ret
+        end
         Hide();
       end
 
@@ -966,11 +976,19 @@
     end
 
     Emi3 (1,nCode);
-    Func ();
 
-    while mod(nCode,128)!=0 do
-      Emi1(0x1A);
-    end
+    Emi1 (0xF5);    // PUSH AF
+    Emi1 (0xC5);    // PUSH BC
+    Emi1 (0xD5);    // PUSH DE
+    Emi2 (0xE5DD);  // PUSH IX
+    Emi2 (0xE5FD);  // PUSH IY
+    Func ();
+    Emi2 (0xE1FD);  // POP IY
+    Emi2 (0xE1DD);  // POP IX
+    Emi1 (0xD1);    // POP DE
+    Emi1 (0xC1);    // POP BC
+    Emi1 (0xF1);    // POP AF
+    Emi1 (0xC9);    // return to MOS
 
     close();
 

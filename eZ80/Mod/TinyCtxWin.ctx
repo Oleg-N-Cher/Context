@@ -1,6 +1,9 @@
 // Здесь приведены два исходных текста - работающий в среде DOS кросс-компилятор и компилятор, работающий в среде CP/M. Компилируемая программа должна размещаться в файле с именем C.PRG, результат компиляции записывается в файл C.COM. Версия для CP/M тестировалась в среде эмулятора MYZ80 1.24. 
 
   define nTEXT 65536  // Длина текстового буфера
+  define nCODE 00000  // Стартовый адрес кода
+  define nDATA 32768  // Стартовый адрес данных
+  define nBUFF   260  // MAX_PATH
 
   char  Text  [nTEXT];
   word pText;
@@ -30,10 +33,15 @@
 
   char  Buff  [  128];
 
+  char  Src   [nBUFF];
+  char  Dest  [nBUFF];
+
 
   synonym  HANDLE  word
   synonym  DWORD   word
   synonym  BOOL    word
+
+  char    @GetCommandLine ()                          external KERNEL32.GetCommandLineA;
 
   HANDLE GetStdHandle (DWORD  nStdHandle)             external KERNEL32;
 
@@ -59,13 +67,14 @@
 
   BOOL CloseHandle (HANDLE hObject)                external KERNEL32;
 
+
   word open (char @Name)
-    return CreateFile("c.prg",$80000000,0,NULL,3,$80,0);
+    return CreateFile(@Name,$80000000,0,NULL,3,$80,0);
   end
 
 
   word create (char @Name)
-    return CreateFile("c.com",$40000000,0,NULL,2,$80,0);
+    return CreateFile(@Name,$40000000,0,NULL,2,$80,0);
   end
 
 
@@ -239,8 +248,8 @@
     nName   := 3;
 
     pStk    := 0;
-    nCode   := 0;
-    nData   := 16640;
+    nCode   := nCODE;
+    nData   := nDATA;
   end
 
 
@@ -458,7 +467,7 @@
 
 
   word  Emi3(word P; word W) is
-    W:=W+256;
+    W:=W+nCODE;
 
     Code[P]  :=mod(W,256);
     Code[P+1]:=div(W,256);
@@ -592,7 +601,7 @@
         end
 
         Emi1(0xCD);          // call Ofs
-        Emi2(Ofs[I]+256);
+        Emi2(Ofs[I]+nCODE);
       end
     end
 
@@ -826,7 +835,7 @@
         word pLoop :=Pop();
 
         Emi1(0xC3);          // jmp  Ofs
-        Emi2(pLoop+256);
+        Emi2(pLoop+nCODE);
 
         Emi3(pExit1+1,nCode);
         Emi3(pExit2+1,nCode);
@@ -910,23 +919,71 @@
     while Comp(60)!=0 do     // !end
       Ctrl();
     end
-
-    if rFlag!=0 then         // 14.05.2006 // if rFlag=0 then
-      Emi1(0xC9);            // ret
-    end
   end
 
 
-  begin
+void GetCmdLine ()
+  char @Command := @GetCommandLine();
+
+  word  I=0;
+  while Command[I]!=#0 & Command[I]!=' ' do
+    inc I;
+  end
+
+  while Command[I] =' ' do
+    inc I;
+  end
+
+  word  K=0;
+  while Command[I]!=#0 & Command[I]!=' ' do
+    Src[K]=Command[I];
+    inc  K;
+
+    if   K>=nBUFF then
+      Stop(); // @eLONGFILENAME
+    end
+
+    inc  I;
+  end
+  Src[K]=#0;
+
+  while Command[I] =' ' do
+    inc I;
+  end
+
+  word  M=0;
+  while Command[I]!=#0 & Command[I]!=' ' do
+    Dest[M]=Command[I];
+    inc  M;
+
+    if   M>=nBUFF then
+      Stop(); // @eWRONGPARM
+    end
+
+    inc  I;
+  end
+  Dest[M]=#0;
+end
+
+
+begin
+    GetCmdLine();
     Init();
 
-    hFile:=open("c.prg");
+    hFile:=open(@Src);
     pText:=0;
     nText:=0;
     nLine:=1;
 
-    Emi1(0xC3);              // jmp  ?
+    Emi1(0xC3);       // jp start
     nCode:=nCode+2;
+
+    while nCode!=64 do Emi1(0x00); end  // .align 64
+    Emi1(byte('M'));  // MOS header
+    Emi1(byte('O'));
+    Emi1(byte('S'));
+    Emi1(0x00);
+    Emi1(0x00);  // run mode (0: Z80, 1: ADL)
 
     Scan();
     while Comp(31)!=0 do     // !begin
@@ -951,6 +1008,9 @@
 
         Scan();              // is
         Func();
+        if rFlag!=0 then     // 14.05.2006 // if rFlag=0 then
+          Emi1(0xC9);        // ret
+        end
         Hide();
       end
 
@@ -962,15 +1022,23 @@
     end
 
     Emi3 (1,nCode);
-    Func ();
 
-    while mod(nCode,128)!=0 do
-      Emi1(0x1A);
-    end
+    Emi1 (0xF5);    // PUSH AF
+    Emi1 (0xC5);    // PUSH BC
+    Emi1 (0xD5);    // PUSH DE
+    Emi2 (0xE5DD);  // PUSH IX
+    Emi2 (0xE5FD);  // PUSH IY
+    Func ();
+    Emi2 (0xE1FD);  // POP IY
+    Emi2 (0xE1DD);  // POP IX
+    Emi1 (0xD1);    // POP DE
+    Emi1 (0xC1);    // POP BC
+    Emi1 (0xF1);    // POP AF
+    Emi1 (0xC9);    // return to MOS
 
     close(hFile);
 
-    hFile:=create("c.com");
+    hFile:=create(@Dest);
     if write(hFile,@Code,nCode)!=nCode then  // 11.02.207
       Stop(); // @eWRITEERR
     end

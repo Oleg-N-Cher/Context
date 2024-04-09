@@ -74,8 +74,8 @@
 
 
   char  putc(char C) is
-    inline 0x0E, 0x02;       // mvi  C, 2
-    inline 0xCD, 0x05, 0x00; // call 5
+    inline 0x7B;             // LD   A, E
+    inline 0x49, 0xD7;       // RST.LIL 10H
   end
 
 
@@ -913,6 +913,12 @@
 
 
   begin
+    putc('T'); putc('i'); putc('n'); putc('y');
+    putc('C'); putc('o'); putc('n'); putc('t');
+    putc('e'); putc('x'); putc('t'); putc(' ');
+    putc('v'); putc('0'); putc('.'); putc('1');
+    putc(char(13)); putc(char(10));
+
     setdma();
 
     Init();
@@ -977,18 +983,24 @@
 
     Emi3 (1,nCode);
 
-    Emi1 (0xF5);    // PUSH AF
-    Emi1 (0xC5);    // PUSH BC
-    Emi1 (0xD5);    // PUSH DE
+    Emi2 (0xF55B);  // PUSH AF
+    Emi2 (0xC55B);  // PUSH BC
+    Emi2 (0xD55B);  // PUSH DE
+    Emi1 (0x5B);    // lil prefix
     Emi2 (0xE5DD);  // PUSH IX
+    Emi1 (0x5B);
     Emi2 (0xE5FD);  // PUSH IY
     Func ();
+    Emi1 (0x5B);    // lil prefix
     Emi2 (0xE1FD);  // POP IY
+    Emi1 (0x5B);
     Emi2 (0xE1DD);  // POP IX
-    Emi1 (0xD1);    // POP DE
-    Emi1 (0xC1);    // POP BC
-    Emi1 (0xF1);    // POP AF
-    Emi1 (0xC9);    // return to MOS
+    Emi2 (0xD15B);  // POP DE
+    Emi2 (0xC15B);  // POP BC
+    Emi2 (0xF15B);  // POP AF
+    Emi2 (0x2149);  // LD HL, 0
+    Emi2 (0);
+    Emi2 (0xC949);  // return to MOS
 
     close();
 

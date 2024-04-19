@@ -1,14 +1,18 @@
-// Версия для CP/M основана на приведенном выше коде, но содержит другие функции ввода-вывода и имеет некоторые другие отличия: 
+// TinyContext language by Andrei Khokhlov - avhohlov.narod.ru
+// Adapted for AgonLight (eZ80) by Oleg N. Cher - zx.oberon.org
 
-  byte  FCB   [   36];
-  byte  DMA   [  128];
-
+  char  Text  [ 4096];
   word pText;
   word nText;
   word nLine;
 
+  word aCode;         // Code start address
+  word aData;         // Data start address
   byte  Code  [16384];
   word nCode;
+
+  byte hFile;
+  word  SP;
 
   char  Heap  [ 2048];
   word nHeap;
@@ -29,59 +33,66 @@
   char  Buff  [  128];
 
 
-  word  setdma() is
-    inline 0x0E, 0x1A;       // mvi  C, 1AH
-    inline 0x11, 0x24, 0x41; // lxi  D
-    inline 0xCD, 0x05, 0x00; // call 5
+  byte open () is
+    inline 0x21, Buff;       // address of filename (0-terminated)
+    inline 0x0E, 0x01;       // LD   C, fa_read           
+    inline 0x3E, 0x0A;       // MOSCALL mos_fopen
+    inline 0x49, 0xCF;       // RST.LIS 08H
+    inline 0x5F;             // LD   E, A  ; returns filehandle
   end
 
 
-  word  open() is
-    inline 0x0E, 0x0F;       // mvi  C, 0FH
-    inline 0x11, 0x00, 0x41; // lxi  D
-    inline 0xCD, 0x05, 0x00; // call 5
+  word read () is
+                             // read (hFile, @Text[pText], nTEXT)
+    inline 0x3A, hFile;      // LD   A, (hFile)
+    inline 0x4F;             // LD   C, A
+    inline 0x5B, 0x11,Text,4;// LD.LIL DE, Text
+    inline 0x2A, pText;      // LD   HL, (pText)
+    inline 0x5B, 0x19;       // ADD.LIL HL, DE
+    inline 0x11, 0x00, 0x10; // LD   DE, 4096 ; nTEXT
+    inline 0x3E, 0x1A;       // MOSCALL mos_fread
+    inline 0x49, 0xCF;       // RST.LIS 08H ; DEU: number of bytes read
   end
 
 
-  word  create() is
-    inline 0x0E, 0x16;       // mvi  C, 16H
-    inline 0x11, 0x00, 0x41; // lxi  D
-    inline 0xCD, 0x05, 0x00; // call 5
+  byte save () is
+    inline 0x21, Buff;       // address of filename (0-terminated)
+    inline 0xE5;             // PUSH HL
+    inline 0x3E, 0x05;       // MOSCALL mos_del
+    inline 0x49, 0xCF;       // RST.LIS 08H
+    inline 0xE1;             // POP HL
+    inline 0x11, Code;       // address to save from
+    inline 0xED, 0x4B, nCode;// number of bytes to save
+    inline 0x3E, 0x02;       // MOSCALL mos_save
+    inline 0x49, 0xCF;       // RST.LIS 08H
+    inline 0x5F;             // LD   E, A  ; file error, or 0 if OK
   end
 
 
-  word  read() is
-    inline 0x0E, 0x14;       // mvi  C, 14H
-    inline 0x11, 0x00, 0x41; // lxi  D
-    inline 0xCD, 0x05, 0x00; // call 5
-    inline 0x5F;             // mov  E, A
-    inline 0x16, 0x00;       // mvi  D, 0
+  byte close () is
+    inline 0x3A, hFile;      // LD   A, (hFile)
+    inline 0x4F;             // LD   C, A
+    inline 0x3E, 0x0B;       // MOSCALL mos_fclose
+    inline 0x49, 0xCF;       // RST.LIS 08H ; A: Number of files still open
+    inline 0x5F;             // LD   E, A
   end
 
 
-  word  write() is
-    inline 0x0E, 0x15;       // mvi  C, 15H
-    inline 0x11, 0x00, 0x41; // lxi  D
-    inline 0xCD, 0x05, 0x00; // call 5
-  end
-
-
-  word  close() is
-    inline 0x0E, 0x10;       // mvi  C, 10H
-    inline 0x11, 0x00, 0x41; // lxi  D
-    inline 0xCD, 0x05, 0x00; // call 5
-  end
-
-
-  char  putc(char C) is
+  char putc (char C) is
     inline 0x7B;             // LD   A, E
-    inline 0x49, 0xD7;       // RST.LIL 10H
+    inline 0x49, 0xD7;       // RST.LIS 10H
   end
 
 
-  word  halt() is
-    inline 0x0E, 0x00;       // mvi  C, 00H
-    inline 0xCD, 0x05, 0x00; // call 5
+  word halt () is
+    inline 0xED, 0x7B, SP;   // LD   SP, (SP)
+    inline 0x5B, 0xFD, 0xE1; // POP.LIL  IY
+    inline 0x5B, 0xDD, 0xE1; // POP.LIL  IX
+    inline 0x5B, 0xD1;       // POP.LIL  DE
+    inline 0x5B, 0xC1;       // POP.LIL  BC
+    inline 0x5B, 0xF1;       // POP.LIL  AF
+    inline 0x21, 0, 0;       // LD   HL, 0
+    inline 0x49;             // RET.LIS ; return to MOS
   end
 
 
@@ -126,7 +137,7 @@
   end
 
 
-  word  Init() is
+  word Init () is
     Heap[ 0]:='0';
     Heap[ 1]:='1';
     Heap[ 2]:='2';
@@ -216,8 +227,8 @@
     nName   := 3;
 
     pStk    := 0;
-    nCode   := 0;
-    nData   := 16640;
+    nCode   := aCode;
+    nData   := aData;
   end
 
 
@@ -233,7 +244,28 @@
   end
 
 
-  word  Stop() is
+  byte puthexdig (byte dig) is
+    if dig<10 then putc(char(dig+48)); end
+    if dig>=10 then putc(char(dig+55)); end
+  end
+
+  word puthex (word hex) is
+    pStk:=0;
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    while pStk!=0 do
+      puthexdig(hex);
+      hex := Pop();
+    end
+    puthexdig(hex);
+  end
+
+
+  word Stop () is
     close();
 
     pStk:=0;
@@ -279,17 +311,16 @@
   end
 
 
-  char  Look() is
+  char Look () is
     if pText>=nText then
-      if read()!=0 then
+      pText := 0;
+      nText := read();
+      if pText>=nText then
         return char(0);
       end
-
-      pText:=  0;
-      nText:=128;
     end
 
-    return     char(DMA[pText]);
+    return Text[pText];
   end
 
 
@@ -424,7 +455,7 @@
 
 
   byte  Emi1(byte B) is
-    Code[nCode]:=B;
+    Code[nCode-aCode]:=B;
     nCode:=nCode+1;
   end
 
@@ -436,8 +467,6 @@
 
 
   word  Emi3(word P, word W) is
-    W:=W+256;
-
     Code[P]  :=mod(W,256);
     Code[P+1]:=div(W,256);
   end
@@ -570,7 +599,7 @@
         end
 
         Emi1(0xCD);          // call Ofs
-        Emi2(Ofs[I]+256);
+        Emi2(Ofs[I]);
       end
     end
 
@@ -643,7 +672,7 @@
 
     if Buff[0]='!' then
       jType    :=   3;
-      jOfs1    := 263;
+      jOfs1    :=   7;
       jCode2   :=0xCA;       // jz
     end
 
@@ -804,7 +833,7 @@
         word pLoop :=Pop();
 
         Emi1(0xC3);          // jmp  Ofs
-        Emi2(pLoop+256);
+        Emi2(pLoop);
 
         Emi3(pExit1+1,nCode);
         Emi3(pExit2+1,nCode);
@@ -819,8 +848,14 @@
         Buff[0]:=',';
         while Buff[0]=',' do
           Scan();
-          Emi1(val());       // db   Val
-
+          cFlag:=0;
+          if '0'<=Buff[0] then
+            if Buff[0]<='9' then
+              cFlag:=1;
+            end
+          end
+          if cFlag=1 then Emi1(val());        end  // db Val
+          if cFlag=0 then Emi2(Ofs[Find(0)]); end  // dw Adr
           Scan();
         end
 
@@ -882,54 +917,37 @@
   end
 
 
-  word  Func() is
+  word Func () is
     Scan();
     Ctrl();
     while Comp(60)!=0 do     // !end
       Ctrl();
     end
-
-    if rFlag!=0 then         // 14.05.2006 // if rFlag=0 then
-      Emi1(0xC9);            // ret
-    end
-  end
-
-
-  byte InitFCB() is
-    FCB[ 0]:=0x00;
-    FCB[ 1]:=byte('C');
-
-    word  I:= 2;
-    while I< 12 do
-      FCB[I]:=byte(' ');
-      I:= I+1;
-    end
-
-    while I< 36 do
-      FCB[I]:=0x00;
-      I:= I+1;
-    end
   end
 
 
   begin
+    inline 0xED, 0x73, SP;   // LD   (SP), SP
+
+    aCode := 0x0000;
+    aData := 0x8000;
+
     putc('T'); putc('i'); putc('n'); putc('y');
     putc('C'); putc('o'); putc('n'); putc('t');
     putc('e'); putc('x'); putc('t'); putc(' ');
     putc('v'); putc('0'); putc('.'); putc('1');
     putc(char(13)); putc(char(10));
 
-    setdma();
-
     Init();
 
-    InitFCB();
-
-    FCB[ 9]:=byte('P');
-    FCB[10]:=byte('R');
-    FCB[11]:=byte('G');
-
-    open();
+    Buff[0] := 'c';
+    Buff[1] := '.';
+    Buff[2] := 'c';
+    Buff[3] := 't';
+    Buff[4] := 'x';
+    Buff[5] := char(0);
+    hFile := open();
+    if hFile = 0 then putc('N'); Stop(); end
 
     pText:=0;
     nText:=0;
@@ -983,49 +1001,41 @@
 
     Emi3 (1,nCode);
 
-    Emi2 (0xF55B);  // PUSH AF
-    Emi2 (0xC55B);  // PUSH BC
-    Emi2 (0xD55B);  // PUSH DE
-    Emi1 (0x5B);    // lil prefix
-    Emi2 (0xE5DD);  // PUSH IX
+    Emi2 (0xF55B);  // PUSH.LIL AF
+    Emi2 (0xC55B);  // PUSH.LIL BC
+    Emi2 (0xD55B);  // PUSH.LIL DE
     Emi1 (0x5B);
-    Emi2 (0xE5FD);  // PUSH IY
+    Emi2 (0xE5DD);  // PUSH.LIL IX
+    Emi1 (0x5B);
+    Emi2 (0xE5FD);  // PUSH.LIL IY
     Func ();
-    Emi1 (0x5B);    // lil prefix
-    Emi2 (0xE1FD);  // POP IY
     Emi1 (0x5B);
-    Emi2 (0xE1DD);  // POP IX
-    Emi2 (0xD15B);  // POP DE
-    Emi2 (0xC15B);  // POP BC
-    Emi2 (0xF15B);  // POP AF
-    Emi2 (0x2149);  // LD HL, 0
-    Emi2 (0);
-    Emi2 (0xC949);  // return to MOS
+    Emi2 (0xE1FD);  // POP.LIL IY
+    Emi1 (0x5B);
+    Emi2 (0xE1DD);  // POP.LIL  IX
+    Emi2 (0xD15B);  // POP.LIL  DE
+    Emi2 (0xC15B);  // POP.LIL  BC
+    Emi2 (0xF15B);  // POP.LIL  AF
+    Emi1 (0x21);
+    Emi2 (0);       // LD   HL, 0
+    Emi2 (0xC949);  // RET.LIS ; return to MOS
 
     close();
 
-    InitFCB();
+    putc('c'); putc('o'); putc('d'); putc('e'); putc(' ');
+    puthex(aCode); putc('-'); puthex(nCode-1);
+    putc(':'); puthex(nCode); putc(char(13)); putc(char(10));
+    putc('d'); putc('a'); putc('t'); putc('a'); putc(' ');
+    puthex(aData); putc('-'); puthex(nData-1);
+    putc(':'); puthex(nData-aData); putc(char(13)); putc(char(10));
 
-    FCB[ 9]:=byte('C');
-    FCB[10]:=byte('O');
-    FCB[11]:=byte('M');
+    Buff[0] := 'c';
+    Buff[1] := '.';
+    Buff[2] := 'b';
+    Buff[3] := 'i';
+    Buff[4] := 'n';
+    Buff[5] := char(0);
 
-    create();
+    if save() != 0 then putc('S'); end
 
-    word  I:=0;
-    word  J:=0;
-    while I<nCode do
-      if J>=128 then
-        write();
-        J:=0;
-      end
-
-      DMA[J]:=Code[I];
-
-      J:=J+1;
-      I:=I+1;
-    end
-
-    write();
-    close();
   end

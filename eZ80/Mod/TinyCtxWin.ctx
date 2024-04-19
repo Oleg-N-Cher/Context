@@ -1,8 +1,6 @@
 // Здесь приведены два исходных текста - работающий в среде DOS кросс-компилятор и компилятор, работающий в среде CP/M. Компилируемая программа должна размещаться в файле с именем C.PRG, результат компиляции записывается в файл C.COM. Версия для CP/M тестировалась в среде эмулятора MYZ80 1.24. 
 
-  define nTEXT 65536  // Длина текстового буфера
-  define nCODE 00000  // Стартовый адрес кода
-  define nDATA 32768  // Стартовый адрес данных
+  define nTEXT  4096  // Длина текстового буфера
   define nBUFF   260  // MAX_PATH
 
   char  Text  [nTEXT];
@@ -10,6 +8,8 @@
   word nText;
   word nLine;
 
+  word aCode;         // Code start address
+  word aData;         // Data start address
   byte  Code  [32768];
   word nCode;
 
@@ -158,7 +158,7 @@
   end
 
 
-  word  Init() is
+  word Init () is
     Heap[ 0]:='0';
     Heap[ 1]:='1';
     Heap[ 2]:='2';
@@ -248,8 +248,8 @@
     nName   := 3;
 
     pStk    := 0;
-    nCode   := nCODE;
-    nData   := nDATA;
+    nCode   := aCode;
+    nData   := aData;
   end
 
 
@@ -265,7 +265,28 @@
   end
 
 
-  word  Stop() is
+  byte puthexdig (byte dig) is
+    if dig<10 then putc(char(dig+48)); end
+    if dig>=10 then putc(char(dig+55)); end
+  end
+
+  word puthex (word hex) is
+    pStk:=0;
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    while pStk!=0 do
+      puthexdig(hex);
+      hex := Pop();
+    end
+    puthexdig(hex);
+  end
+
+
+  word Stop () is
     close(hFile);
 
     pStk:=0;
@@ -467,8 +488,6 @@
 
 
   word  Emi3(word P; word W) is
-    W:=W+nCODE;
-
     Code[P]  :=mod(W,256);
     Code[P+1]:=div(W,256);
   end
@@ -601,7 +620,7 @@
         end
 
         Emi1(0xCD);          // call Ofs
-        Emi2(Ofs[I]+nCODE);
+        Emi2(Ofs[I]);
       end
     end
 
@@ -674,7 +693,7 @@
 
     if Buff[0]='!' then
       jType    :=   3;
-      jOfs1    := 263;
+      jOfs1    :=   7;
       jCode2   :=0xCA;       // jz
     end
 
@@ -835,7 +854,7 @@
         word pLoop :=Pop();
 
         Emi1(0xC3);          // jmp  Ofs
-        Emi2(pLoop+nCODE);
+        Emi2(pLoop);
 
         Emi3(pExit1+1,nCode);
         Emi3(pExit2+1,nCode);
@@ -850,8 +869,14 @@
         Buff[0]:=',';
         while Buff[0]=',' do
           Scan();
-          Emi1(val());       // db   Val
-
+          cFlag:=0;
+          if '0'<=Buff[0] then
+            if Buff[0]<='9' then
+              cFlag:=1;
+            end
+          end
+          if cFlag=1 then Emi1(val());        end  // db Val
+          if cFlag=0 then Emi2(Ofs[Find(0)]); end  // dw Adr
           Scan();
         end
 
@@ -913,7 +938,7 @@
   end
 
 
-  word  Func() is
+  word Func () is
     Scan();
     Ctrl();
     while Comp(60)!=0 do     // !end
@@ -967,6 +992,9 @@ end
 
 
 begin
+    aCode := 0x0000;
+    aData := 0x8000;
+
     GetCmdLine();
     Init();
 
@@ -1023,26 +1051,33 @@ begin
 
     Emi3 (1,nCode);
 
-    Emi2 (0xF55B);  // PUSH AF
-    Emi2 (0xC55B);  // PUSH BC
-    Emi2 (0xD55B);  // PUSH DE
-    Emi1 (0x5B);    // lil prefix
-    Emi2 (0xE5DD);  // PUSH IX
+    Emi2 (0xF55B);  // PUSH.LIL AF
+    Emi2 (0xC55B);  // PUSH.LIL BC
+    Emi2 (0xD55B);  // PUSH.LIL DE
     Emi1 (0x5B);
-    Emi2 (0xE5FD);  // PUSH IY
+    Emi2 (0xE5DD);  // PUSH.LIL IX
+    Emi1 (0x5B);
+    Emi2 (0xE5FD);  // PUSH.LIL IY
     Func ();
-    Emi1 (0x5B);    // lil prefix
-    Emi2 (0xE1FD);  // POP IY
     Emi1 (0x5B);
-    Emi2 (0xE1DD);  // POP IX
-    Emi2 (0xD15B);  // POP DE
-    Emi2 (0xC15B);  // POP BC
-    Emi2 (0xF15B);  // POP AF
-    Emi2 (0x2149);  // LD HL, 0
-    Emi2 (0);
-    Emi2 (0xC949);  // return to MOS
+    Emi2 (0xE1FD);  // POP.LIL IY
+    Emi1 (0x5B);
+    Emi2 (0xE1DD);  // POP.LIL  IX
+    Emi2 (0xD15B);  // POP.LIL  DE
+    Emi2 (0xC15B);  // POP.LIL  BC
+    Emi2 (0xF15B);  // POP.LIL  AF
+    Emi1 (0x21);
+    Emi2 (0);       // LD   HL, 0
+    Emi2 (0xC949);  // RET.LIS ; return to MOS
 
     close(hFile);
+
+    putc('c'); putc('o'); putc('d'); putc('e'); putc(' ');
+    puthex(aCode); putc('-'); puthex(nCode-1);
+    putc(':'); puthex(nCode); putc(char(13)); putc(char(10));
+    putc('d'); putc('a'); putc('t'); putc('a'); putc(' ');
+    puthex(aData); putc('-'); puthex(nData-1);
+    putc(':'); puthex(nData-aData); putc(char(13)); putc(char(10));
 
     hFile:=create(@Dest);
     if write(hFile,@Code,nCode)!=nCode then  // 11.02.207

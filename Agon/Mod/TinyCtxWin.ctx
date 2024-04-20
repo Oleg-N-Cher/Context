@@ -1,6 +1,6 @@
 // Здесь приведены два исходных текста - работающий в среде DOS кросс-компилятор и компилятор, работающий в среде CP/M. Компилируемая программа должна размещаться в файле с именем C.PRG, результат компиляции записывается в файл C.COM. Версия для CP/M тестировалась в среде эмулятора MYZ80 1.24. 
 
-  define nTEXT  4096  // Длина текстового буфера
+  define nTEXT 16384  // Длина текстового буфера
   define nBUFF   260  // MAX_PATH
 
   char  Text  [nTEXT];
@@ -10,7 +10,7 @@
 
   word aCode;         // Code start address
   word aData;         // Data start address
-  byte  Code  [32768];
+  byte  Code  [65536];
   word nCode;
 
   word hFile;
@@ -1003,7 +1003,7 @@ begin
     nText:=0;
     nLine:=1;
 
-    Emi1(0xC3);       // jp start
+    Emi1(0xC3);       // JP Start
     nCode:=nCode+2;
 
     while nCode!=64 do Emi1(0x00); end  // .align 64

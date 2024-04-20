@@ -1,15 +1,16 @@
 // Здесь приведены два исходных текста - работающий в среде DOS кросс-компилятор и компилятор, работающий в среде CP/M. Компилируемая программа должна размещаться в файле с именем C.PRG, результат компиляции записывается в файл C.COM. Версия для CP/M тестировалась в среде эмулятора MYZ80 1.24. 
 
-  define nTEXT 65536  // Длина текстового буфера
-  define nCODE 32000  // Стартовый адрес кода
-  define nDATA 64000  // Стартовый адрес данных
+  define nTEXT 16384  // Длина текстового буфера
+  define nBUFF   260  // MAX_PATH
 
   char  Text  [nTEXT];
   word pText;
   word nText;
   word nLine;
 
-  byte  Code  [32768];
+  word aCode;         // Code start address
+  word aData;         // Data start address
+  byte  Code  [65536];
   word nCode;
 
   word hFile;
@@ -32,10 +33,15 @@
 
   char  Buff  [  128];
 
+  char  Src   [nBUFF];
+  char  Dest  [nBUFF];
+
 
   synonym  HANDLE  word
   synonym  DWORD   word
   synonym  BOOL    word
+
+  char    @GetCommandLine ()                          external KERNEL32.GetCommandLineA;
 
   HANDLE GetStdHandle (DWORD  nStdHandle)             external KERNEL32;
 
@@ -61,13 +67,14 @@
 
   BOOL CloseHandle (HANDLE hObject)                external KERNEL32;
 
+
   word open (char @Name)
-    return CreateFile("c.prg",$80000000,0,NULL,3,$80,0);
+    return CreateFile(@Name,$80000000,0,NULL,3,$80,0);
   end
 
 
   word create (char @Name)
-    return CreateFile("c.com",$40000000,0,NULL,2,$80,0);
+    return CreateFile(@Name,$40000000,0,NULL,2,$80,0);
   end
 
 
@@ -151,7 +158,7 @@
   end
 
 
-  word  Init() is
+  word Init () is
     Heap[ 0]:='0';
     Heap[ 1]:='1';
     Heap[ 2]:='2';
@@ -241,8 +248,8 @@
     nName   := 3;
 
     pStk    := 0;
-    nCode   := 0;
-    nData   := nDATA;
+    nCode   := aCode;
+    nData   := aData;
   end
 
 
@@ -258,7 +265,28 @@
   end
 
 
-  word  Stop() is
+  byte puthexdig (byte dig) is
+    if dig<10 then putc(char(dig+48)); end
+    if dig>=10 then putc(char(dig+55)); end
+  end
+
+  word puthex (word hex) is
+    pStk:=0;
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    Push  (mod(hex,16));
+    hex:=div(hex,16);
+    while pStk!=0 do
+      puthexdig(hex);
+      hex := Pop();
+    end
+    puthexdig(hex);
+  end
+
+
+  word Stop () is
     close(hFile);
 
     pStk:=0;
@@ -448,7 +476,7 @@
 
 
   byte  Emi1(byte B) is
-    Code[nCode]:=B;
+    Code[nCode-aCode]:=B;
     nCode:=nCode+1;
   end
 
@@ -460,8 +488,6 @@
 
 
   word  Emi3(word P; word W) is
-    W:=W+nCODE;
-
     Code[P]  :=mod(W,256);
     Code[P+1]:=div(W,256);
   end
@@ -594,7 +620,7 @@
         end
 
         Emi1(0xCD);          // call Ofs
-        Emi2(Ofs[I]+nCODE);
+        Emi2(Ofs[I]);
       end
     end
 
@@ -667,7 +693,7 @@
 
     if Buff[0]='!' then
       jType    :=   3;
-      jOfs1    := 263;
+      jOfs1    :=   7;
       jCode2   :=0xCA;       // jz
     end
 
@@ -828,7 +854,7 @@
         word pLoop :=Pop();
 
         Emi1(0xC3);          // jmp  Ofs
-        Emi2(pLoop+nCODE);
+        Emi2(pLoop);
 
         Emi3(pExit1+1,nCode);
         Emi3(pExit2+1,nCode);
@@ -843,8 +869,14 @@
         Buff[0]:=',';
         while Buff[0]=',' do
           Scan();
-          Emi1(val());       // db   Val
-
+          cFlag:=0;
+          if '0'<=Buff[0] then
+            if Buff[0]<='9' then
+              cFlag:=1;
+            end
+          end
+          if cFlag=1 then Emi1(val());        end  // db Val
+          if cFlag=0 then Emi2(Ofs[Find(0)]); end  // dw Adr
           Scan();
         end
 
@@ -906,28 +938,72 @@
   end
 
 
-  word  Func() is
+  word Func () is
     Scan();
     Ctrl();
     while Comp(60)!=0 do     // !end
       Ctrl();
     end
-
-    if rFlag!=0 then         // 14.05.2006 // if rFlag=0 then
-      Emi1(0xC9);            // ret
-    end
   end
 
 
+void GetCmdLine ()
+  char @Command := @GetCommandLine();
+
+  word  I=0;
+  while Command[I]!=#0 & Command[I]!=' ' do
+    inc I;
+  end
+
+  while Command[I] =' ' do
+    inc I;
+  end
+
+  word  K=0;
+  while Command[I]!=#0 & Command[I]!=' ' do
+    Src[K]=Command[I];
+    inc  K;
+
+    if   K>=nBUFF then
+      Stop(); // @eLONGFILENAME
+    end
+
+    inc  I;
+  end
+  Src[K]=#0;
+
+  while Command[I] =' ' do
+    inc I;
+  end
+
+  word  M=0;
+  while Command[I]!=#0 & Command[I]!=' ' do
+    Dest[M]=Command[I];
+    inc  M;
+
+    if   M>=nBUFF then
+      Stop(); // @eWRONGPARM
+    end
+
+    inc  I;
+  end
+  Dest[M]=#0;
+end
+
+
   begin
+    aCode := 0x6000;
+    aData := 0xE000;
+
+    GetCmdLine();
     Init();
 
-    hFile:=open("c.prg");
+    hFile:=open(@Src);
     pText:=0;
     nText:=0;
     nLine:=1;
 
-    Emi1(0xC3);              // jmp  ?
+    Emi1(0xC3);       // JP Start
     nCode:=nCode+2;
 
     Scan();
@@ -953,6 +1029,9 @@
 
         Scan();              // is
         Func();
+        if rFlag!=0 then     // 14.05.2006 // if rFlag=0 then
+          Emi1(0xC9);        // ret
+        end
         Hide();
       end
 
@@ -965,15 +1044,20 @@
 
     Emi3 (1,nCode);
     Func ();
+    Emi1 (0xC9);  // RET
 
-    while mod(nCode,128)!=0 do
-      Emi1(0x1A);
-    end
 
     close(hFile);
 
-    hFile:=create("c.com");
-    if write(hFile,@Code,nCode)!=nCode then  // 11.02.207
+    putc('c'); putc('o'); putc('d'); putc('e'); putc(' ');
+    puthex(aCode); putc('-'); puthex(nCode-1);
+    putc(':'); puthex(nCode-aCode); putc(char(13)); putc(char(10));
+    putc('d'); putc('a'); putc('t'); putc('a'); putc(' ');
+    puthex(aData); putc('-'); puthex(nData-1);
+    putc(':'); puthex(nData-aData); putc(char(13)); putc(char(10));
+
+    hFile:=create(@Dest);
+    if write(hFile,@Code,nCode-aCode)!=nCode-aCode then  // 11.02.207
       Stop(); // @eWRITEERR
     end
     close(hFile);

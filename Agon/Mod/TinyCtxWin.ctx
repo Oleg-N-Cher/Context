@@ -475,13 +475,13 @@
   end
 
 
-  byte  Emi1(byte B) is
-    Code[nCode]:=B;
+  byte Emi1 (byte B) is
+    Code[nCode-aCode]:=B;
     nCode:=nCode+1;
   end
 
 
-  word  Emi2(word W) is
+  word Emi2 (word W) is
     Emi1(mod(W,256));
     Emi1(div(W,256));
   end
@@ -1074,13 +1074,13 @@ begin
 
     putc('c'); putc('o'); putc('d'); putc('e'); putc(' ');
     puthex(aCode); putc('-'); puthex(nCode-1);
-    putc(':'); puthex(nCode); putc(char(13)); putc(char(10));
+    putc(':'); puthex(nCode-aCode); putc(char(13)); putc(char(10));
     putc('d'); putc('a'); putc('t'); putc('a'); putc(' ');
     puthex(aData); putc('-'); puthex(nData-1);
     putc(':'); puthex(nData-aData); putc(char(13)); putc(char(10));
 
     hFile:=create(@Dest);
-    if write(hFile,@Code,nCode)!=nCode then  // 11.02.207
+    if write(hFile,@Code,nCode-aCode)!=nCode-aCode then  // 11.02.207
       Stop(); // @eWRITEERR
     end
     close(hFile);

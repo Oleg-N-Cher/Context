@@ -475,13 +475,13 @@
   end
 
 
-  byte  Emi1(byte B) is
+  byte Emi1 (byte B) is
     Code[nCode-aCode]:=B;
     nCode:=nCode+1;
   end
 
 
-  word  Emi2(word W) is
+  word Emi2 (word W) is
     Emi1(mod(W,256));
     Emi1(div(W,256));
   end

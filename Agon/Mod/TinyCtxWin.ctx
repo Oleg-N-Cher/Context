@@ -976,18 +976,18 @@ void GetCmdLine ()
     inc I;
   end
 
-  word  M=0;
+  K:=0;
   while Command[I]!=#0 & Command[I]!=' ' do
-    Dest[M]=Command[I];
-    inc  M;
+    Dest[K]=Command[I];
+    inc  K;
 
-    if   M>=nBUFF then
+    if   K>=nBUFF then
       Stop(); // @eWRONGPARM
     end
 
     inc  I;
   end
-  Dest[M]=#0;
+  Dest[K]=#0;
 end
 
 
@@ -996,6 +996,15 @@ begin
     aData := 0x8000;
 
     GetCmdLine();
+    if Src[0] = char(0) then
+      putc('T'); putc('i'); putc('n'); putc('y');
+      putc('C'); putc('o'); putc('n'); putc('t');
+      putc('e'); putc('x'); putc('t'); putc(' ');
+      putc('v'); putc('1'); putc('.'); putc('0');
+      putc(char(13)); putc(char(10));
+      halt(0);
+    end
+
     Init();
 
     hFile:=open(@Src);

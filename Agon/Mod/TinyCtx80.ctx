@@ -32,9 +32,13 @@
 
   char  Buff  [  128];
 
+  char  Src   [   64];
+  char  Dest  [   64];
+  char Command [  64];
+
 
   byte open () is
-    inline 0x21, Buff;       // address of filename (0-terminated)
+    inline 0x21, Src;        // address of filename (0-terminated)
     inline 0x0E, 0x01;       // LD   C, fa_read           
     inline 0x3E, 0x0A;       // MOSCALL mos_fopen
     inline 0x49, 0xCF;       // RST.LIS 08H
@@ -56,7 +60,7 @@
 
 
   byte save () is
-    inline 0x21, Buff;       // address of filename (0-terminated)
+    inline 0x21, Dest;       // address of filename (0-terminated)
     inline 0xE5;             // PUSH HL
     inline 0x3E, 0x05;       // MOSCALL mos_del
     inline 0x49, 0xCF;       // RST.LIS 08H
@@ -66,6 +70,7 @@
     inline 0x3E, 0x02;       // MOSCALL mos_save
     inline 0x49, 0xCF;       // RST.LIS 08H
     inline 0x5F;             // LD   E, A  ; file error, or 0 if OK
+    inline 0x16, 0;          // LD   D, 0
   end
 
 
@@ -926,28 +931,75 @@
   end
 
 
-  begin
-    inline 0xED, 0x73, SP;   // LD   (SP), SP
+word GetCmdLine () is
+  word  I:=0;
+  while Command[I] = ' ' do
+    I:=I+1;
+  end
 
-    aCode := 0x0000;
-    aData := 0x8000;
+  word  K:=0;
+  Src[0]:=Command[I];
+  while Src[K] != char(0) do
+    I:=I+1;
 
+    //if   K>=nBUFF then
+    //  Stop(); // @eLONGFILENAME
+    //end
+
+    K:=K+1;
+    Src[K]:=Command[I];
+  	if Src[K]=' ' then Src[K]:=char(0); end
+  end
+  I:=I+1;
+
+  while Command[I] = ' ' do
+    I:=I+1;
+  end
+
+  K:=0;
+  Dest[0]=Command[I];
+  while Dest[K] != char(0) do
+    I:=I+1;
+
+    //if   K>=nBUFF then
+    //  Stop(); // @eWRONGPARM
+    //end
+
+    K:=K+1;
+    Dest[K]=Command[I];
+  	if Dest[K]=' ' then Dest[K]:=char(0); end
+  end
+end
+
+
+begin
+  inline 0xED, 0x73, SP;  // LD   (SP), SP
+
+  inline 0x11, Command;   // LD   DE, Command
+  inline 0x5B, 0x7E;      // LOOP: LD.LIL A, (HL)
+  inline 0x12;            // LD   (DE), A
+  inline 0x5B, 0x23;      // INC.LIL HL
+  inline 0x13;            // INC   DE
+  inline 0xB7;            // OR   A
+  inline 0x20, 0xF7;      // JR   NZ, LOOP
+
+  aCode := 0x0000;
+  aData := 0x8000;
+
+  GetCmdLine();
+  if Src[0] = char(0) then
     putc('T'); putc('i'); putc('n'); putc('y');
     putc('C'); putc('o'); putc('n'); putc('t');
     putc('e'); putc('x'); putc('t'); putc(' ');
-    putc('v'); putc('0'); putc('.'); putc('1');
+    putc('v'); putc('1'); putc('.'); putc('0');
     putc(char(13)); putc(char(10));
+    halt();
+  end
 
-    Init();
+  Init();
 
-    Buff[0] := 'c';
-    Buff[1] := '.';
-    Buff[2] := 'c';
-    Buff[3] := 't';
-    Buff[4] := 'x';
-    Buff[5] := char(0);
-    hFile := open();
-    if hFile = 0 then putc('N'); Stop(); end
+  hFile := open();
+  if hFile = 0 then putc('N'); Stop(); end
 
     pText:=0;
     nText:=0;
@@ -1028,13 +1080,6 @@
     putc('d'); putc('a'); putc('t'); putc('a'); putc(' ');
     puthex(aData); putc('-'); puthex(nData-1);
     putc(':'); puthex(nData-aData); putc(char(13)); putc(char(10));
-
-    Buff[0] := 'c';
-    Buff[1] := '.';
-    Buff[2] := 'b';
-    Buff[3] := 'i';
-    Buff[4] := 'n';
-    Buff[5] := char(0);
 
     if save() != 0 then putc('S'); end
 

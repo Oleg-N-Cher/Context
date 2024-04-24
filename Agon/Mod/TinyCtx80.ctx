@@ -931,44 +931,75 @@
   end
 
 
+//word puts () is
+//  word n := 0;
+//  while Dest[n] != char(0) do putc(Dest[n]); n:=n+1; end
+//end
+
 word GetCmdLine () is
+  word dotPos := 0;
+
   word  I:=0;
   while Command[I] = ' ' do
     I:=I+1;
   end
 
   word  K:=0;
-  Src[0]:=Command[I];
-  while Src[K] != char(0) do
-    I:=I+1;
+  char ch := Command[I];
+  while ch != char(0) do
+    Src[K] := ch; Dest[K] := ch;
+    K:=K+1;
 
     //if   K>=nBUFF then
     //  Stop(); // @eLONGFILENAME
     //end
 
-    K:=K+1;
-    Src[K]:=Command[I];
-  	if Src[K]=' ' then Src[K]:=char(0); end
+    I:=I+1;
+    ch := Command[I];
+    if ch = ' ' then ch := char(0); end
+    if ch = '.' then dotPos:= K; end
   end
-  I:=I+1;
+  Src[K] := char(0); Dest[K] := char(0);
+
+  if dotPos = 0 then
+    dotPos := K;
+    Src[K] := '.'; K:=K+1;
+    Src[K] := 'c'; K:=K+1;
+    Src[K] := 't'; K:=K+1;
+    Src[K] := 'x'; K:=K+1;
+    Src[K] := char(0);
+  end
 
   while Command[I] = ' ' do
     I:=I+1;
   end
 
-  K:=0;
-  Dest[0]=Command[I];
-  while Dest[K] != char(0) do
-    I:=I+1;
+  K := 0;
+  ch := Command[I];
+  while ch != char(0) do
+    Dest[K] := ch;
+    K:=K+1;
 
     //if   K>=nBUFF then
     //  Stop(); // @eWRONGPARM
     //end
 
-    K:=K+1;
-    Dest[K]=Command[I];
-  	if Dest[K]=' ' then Dest[K]:=char(0); end
+    I:=I+1;
+    ch := Command[I];
+    if ch = ' ' then ch := char(0); end
   end
+
+  if K = 0 then
+    Dest[dotPos] := '.';
+    dotPos := dotPos+1;
+    Dest[dotPos] := 'b';
+    dotPos := dotPos+1;
+    Dest[dotPos] := 'i';
+    dotPos := dotPos+1;
+    Dest[dotPos] := 'n';
+    K := dotPos + 1;
+  end
+  Dest[K] := char(0);
 end
 
 
@@ -999,7 +1030,9 @@ begin
   Init();
 
   hFile := open();
-  if hFile = 0 then putc('N'); Stop(); end
+  if hFile = 0 then putc('n'); putc('o');
+    putc(' '); putc('s'); putc('r'); putc('c'); halt();
+  end
 
     pText:=0;
     nText:=0;

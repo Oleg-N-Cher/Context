@@ -1,0 +1,19 @@
+// module test
+
+word putc (char C) is
+  inline 0x7B;             // LD   A, E
+  inline 0x49, 0xD7;       // RST.LIS 10H
+end
+
+word puts (word S) is
+  inline 0xEB;             // EX   DE, HL ; Address of string
+  inline 0xAF;             // XOR A ; Use char in A as delimiter
+  inline 0x4F, 0x47;   // LD C,A : LD B,A ; 0, so length ignored
+  inline 0x49, 0xDF;       // RST.LIS 18H
+end
+
+begin
+  puts("Hello World!");
+  putc(char(13));
+  putc(char(10));
+end

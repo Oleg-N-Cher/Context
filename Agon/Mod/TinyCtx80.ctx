@@ -542,6 +542,32 @@
         eFlag:=1;
       end
 
+      if eFlag=0 then  // 1.13
+        if Buff[0]='"' then
+          word pCode:=nCode;
+
+          Emi1(0xC3);        // JP   ?
+          nCode:=nCode+2;
+
+          while Look()!='"' do
+            if Look()=char( 0) then
+              Stop();
+            end
+
+            Emi1(word(Read()));
+          end
+
+          Emi1(0);
+          Read();
+
+          Emi3(pCode+1, nCode);
+          Emi1(0x11);        // LD   DE, Str
+          Emi2(pCode+3);
+
+          eFlag:=1;
+        end
+      end
+
       if Buff[0]='(' then
         Scan();
         Expr();

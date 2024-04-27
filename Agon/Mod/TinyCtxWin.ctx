@@ -1001,42 +1001,46 @@ void GetCmdLine ()
   end
   Src[K]:=char(0); Dest[K]:=char(0);
 
-  if dotPos = 0 then
-    dotPos := K;
-    Src[K] := '.'; inc K;
-    Src[K] := 'c'; inc K;
-    Src[K] := 't'; inc K;
-    Src[K] := 'x'; inc K;
-    Src[K] := char(0);
-  end
+  if Src[0] != char(0) then
 
-  while Command[I] = ' ' do
-    inc I;
-  end
-
-  K:=0;
-  while Command[I]!=#0 & Command[I]!=' ' do
-    Dest[K]:=Command[I];
-    inc  K;
-
-    if   K>=nBUFF then
-      Stop(); // @eWRONGPARM
+    if dotPos = 0 then
+      dotPos := K;
+      Src[K] := '.'; inc K;
+      Src[K] := 'c'; inc K;
+      Src[K] := 't'; inc K;
+      Src[K] := 'x'; inc K;
+      Src[K] := char(0);
     end
 
-    inc  I;
-  end
+    while Command[I] = ' ' do
+      inc I;
+    end
 
-  if K = 0 then
-    Dest[dotPos] := '.';
-    inc dotPos;
-    Dest[dotPos] := 'b';
-    inc dotPos;
-    Dest[dotPos] := 'i';
-    inc dotPos;
-    Dest[dotPos] := 'n';
-    K := dotPos + 1;
+    K:=0;
+    while Command[I]!=#0 & Command[I]!=' ' do
+      Dest[K]:=Command[I];
+      inc  K;
+
+      if   K>=nBUFF then
+        Stop(); // @eWRONGPARM
+      end
+
+      inc  I;
+    end
+
+    if K = 0 then
+      Dest[dotPos] := '.';
+      inc dotPos;
+      Dest[dotPos] := 'b';
+      inc dotPos;
+      Dest[dotPos] := 'i';
+      inc dotPos;
+      Dest[dotPos] := 'n';
+      K := dotPos + 1;
+    end
+    Dest[K] := char(0);
+
   end
-  Dest[K] := char(0);
 end
 
 

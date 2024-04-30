@@ -1,3 +1,3 @@
 @CD ..\Mod
-@..\Bin\tinyctx.exe TinyCtx80.ctx ..\ctx.bin
+@..\Bin\tinyctx.exe -d 0x4000 TinyCtx80.ctx ..\ctx.bin
 @PAUSE

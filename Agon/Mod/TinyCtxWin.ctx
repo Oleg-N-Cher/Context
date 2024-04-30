@@ -33,6 +33,7 @@
 
   char  Buff  [  128];
 
+  char  @Cmd;
   char  Src   [nBUFF];
   char  Dest  [nBUFF];
 
@@ -248,8 +249,6 @@
     nName   := 3;
 
     pStk    := 0;
-    nCode   := aCode;
-    nData   := aData;
   end
 
 
@@ -295,9 +294,11 @@
       nLine:=div(nLine,10);
     end
 
+    puts("error in ");
     while pStk!=0 do
       putc(char(Pop()+48));
     end
+    putc(char(13)); putc(char(10));
 
     halt(1);
   end
@@ -321,7 +322,7 @@
           Stop();
         end
 
-        K:=K+1;
+        inc  K;
       end
 
       N:=mul(N,E)+K;
@@ -562,7 +563,7 @@
         if Buff[0]='"' then
           word pCode:=nCode;
 
-          Emi1(0xC3);        // JP   ?
+          Emi1(0xC3);        // JP start
           nCode:=nCode+2;
 
           while Look()!='"' do
@@ -973,23 +974,61 @@
   end
 
 
+word SkipSpaces () is
+  while Cmd[pText] = ' ' do
+    inc pText;
+  end
+end
+
+
+word CopyToBuf () is
+  word I := 0;
+  pText := pText+1;
+  SkipSpaces();
+
+  char ch := Cmd[pText];
+  while ch != char(0) do
+    Buff[I] := ch;
+    I := I+1;
+
+    if I >= 128 then
+      Stop(); // @eLONGFILENAME
+    end
+
+    pText := pText+1;
+    ch := Cmd[pText];
+    if ch = ' ' then ch := char(0); end
+  end
+  Buff[I] := char(0);
+
+  SkipSpaces();
+end
+
+
 void GetCmdLine ()
   word dotPos:=0;
-  char @Command := @GetCommandLine();
+  @Cmd := @GetCommandLine();
 
-  word  I=0;
-  while Command[I]!=#0 & Command[I]!=' ' do
-    inc I;
+  pText := 0;
+  while Cmd[pText]!=#0 & Cmd[pText]!=' ' do
+    inc pText;
   end
 
-  while Command[I] = ' ' do
-    inc I;
+  SkipSpaces();
+
+  while Cmd[pText] = '-' do
+    pText := pText+1;
+    char opt := Cmd[pText];
+    if opt = 'c' then CopyToBuf(); aCode := val(); end
+    if opt = 'd' then CopyToBuf(); aData := val(); end
   end
+
+  SkipSpaces();
 
   word K:=0;
-  while Command[I]!=#0 & Command[I]!=' ' do
-    char ch:=Command[I];
-    Src[K]:=ch; Dest[K]:=ch;
+  char ch := Cmd[pText];
+  while ch!=#0 & ch!=' ' do
+    Src[K] := ch; Dest[K] := ch;
     if ch = '.' then dotPos:= K; end
     inc  K;
 
@@ -997,9 +1036,10 @@ void GetCmdLine ()
       Stop(); // @eLONGFILENAME
     end
 
-    inc  I;
+    inc pText;
+    ch := Cmd[pText];
   end
-  Src[K]:=char(0); Dest[K]:=char(0);
+  Src[K] := char(0); Dest[K] := char(0);
 
   if Src[0] != char(0) then
 
@@ -1012,20 +1052,20 @@ void GetCmdLine ()
       Src[K] := char(0);
     end
 
-    while Command[I] = ' ' do
-      inc I;
-    end
+    SkipSpaces();
 
-    K:=0;
-    while Command[I]!=#0 & Command[I]!=' ' do
-      Dest[K]:=Command[I];
+    K := 0;
+    ch := Cmd[pText];
+    while ch!=#0 & ch!=' ' do
+      Dest[K]:=ch;
       inc  K;
 
       if   K>=nBUFF then
         Stop(); // @eWRONGPARM
       end
 
-      inc  I;
+      inc pText;
+      ch := Cmd[pText];
     end
 
     if K = 0 then
@@ -1045,35 +1085,36 @@ end
 
 
 begin
-    aCode := 0x0000;
-    aData := 0x8000;
+  aCode := 0x0000;
+  aData := 0xC000;
+  Init();
 
-    GetCmdLine();
-    if Src[0] = char(0) then
-      puts("TinyContext v1.0 for Z80");
-      putc(char(13)); putc(char(10));
-      puts("tinyctx prog[.ctx] [prog.bin]");
-      putc(char(13)); putc(char(10));
-      halt(0);
-    end
+  GetCmdLine();
+  if Src[0] = char(0) then
+    puts("TinyContext v1.0 for Z80");
+    putc(char(13)); putc(char(10));
+    puts("tinyctx [-cCodeAdr] [-dDataAdr] prog[.ctx] [prog.bin]");
+    putc(char(13)); putc(char(10));
+    halt(0);
+  end
 
-    Init();
+  hFile:=open(@Src);
+  if hFile = 0xFFFFFFFF then puts("can't open source"); halt(1); end
+  pText:=0;
+  nText:=0;
+  nLine:=1;
+  nCode := aCode;
+  nData := aData;
 
-    hFile:=open(@Src);
-    if hFile = 0xFFFFFFFF then puts("can't open source"); halt(1); end
-    pText:=0;
-    nText:=0;
-    nLine:=1;
+  Emi1(0xC3);       // JP Start
+  nCode:=nCode+2;
 
-    Emi1(0xC3);       // JP Start
-    nCode:=nCode+2;
-
-    while nCode!=64 do Emi1(0x00); end  // .align 64
-    Emi1(byte('M'));  // MOS header
-    Emi1(byte('O'));
-    Emi1(byte('S'));
-    Emi1(0x00);
-    Emi1(0x00);  // run mode (0: Z80, 1: ADL)
+  while nCode-aCode < 64 do Emi1(0x00); end  // ALIGN 64
+  Emi1(byte('M'));  // MOS header
+  Emi1(byte('O'));
+  Emi1(byte('S'));
+  Emi1(0x00);
+  Emi1(0x00);  // run mode (0: Z80, 1: ADL)
 
     Scan();
     while Comp(31)!=0 do     // !begin

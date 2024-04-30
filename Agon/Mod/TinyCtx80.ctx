@@ -34,7 +34,6 @@
 
   char  Src   [   64];
   char  Dest  [   64];
-  char Command [  64];
 
 
   byte open () is
@@ -240,8 +239,6 @@
     nName   := 3;
 
     pStk    := 0;
-    nCode   := aCode;
-    nData   := aData;
   end
 
 
@@ -287,9 +284,11 @@
       nLine:=div(nLine,10);
     end
 
+    puts("error in ");
     while pStk!=0 do
       putc(char(Pop()+48));
     end
+    putc(char(13)); putc(char(10));
 
     halt();
   end
@@ -965,33 +964,65 @@
   end
 
 
-//word puts () is
-//  word n := 0;
-//  while Dest[n] != char(0) do putc(Dest[n]); n:=n+1; end
-//end
+word SkipSpaces () is
+  while Text[pText] = ' ' do
+    pText := pText+1;
+  end
+end
+
+
+word CopyToBuf () is
+  word I := 0;
+  pText := pText+1;
+  SkipSpaces();
+
+  char ch := Text[pText];
+  while ch != char(0) do
+    Buff[I] := ch;
+    I := I+1;
+
+    //if I >= 128 then
+    //  Stop(); // @eLONGFILENAME
+    //end
+
+    pText := pText+1;
+    ch := Text[pText];
+    if ch = ' ' then ch := char(0); end
+  end
+  Buff[I] := char(0);
+
+  SkipSpaces();
+end
+
 
 word GetCmdLine () is
   word dotPos := 0;
+  pText := 0;
+  SkipSpaces();
 
-  word  I:=0;
-  while Command[I] = ' ' do
-    I:=I+1;
+  while Text[pText] = '-' do
+    pText := pText+1;
+    char opt := Text[pText];
+    if opt = 'c' then CopyToBuf(); aCode := val(); end
+    if opt = 'd' then CopyToBuf(); aData := val(); end
   end
 
-  word  K:=0;
-  char ch := Command[I];
+  SkipSpaces();
+
+  word K:=0;
+  char ch := Text[pText];
   while ch != char(0) do
     Src[K] := ch; Dest[K] := ch;
+    if ch = '.' then dotPos:= K; end
     K:=K+1;
 
     //if   K>=nBUFF then
     //  Stop(); // @eLONGFILENAME
     //end
 
-    I:=I+1;
-    ch := Command[I];
+    pText:=pText+1;
+    ch := Text[pText];
     if ch = ' ' then ch := char(0); end
-    if ch = '.' then dotPos:= K; end
   end
   Src[K] := char(0); Dest[K] := char(0);
 
@@ -1006,12 +1037,10 @@ word GetCmdLine () is
       Src[K] := char(0);
     end
 
-    while Command[I] = ' ' do
-      I:=I+1;
-    end
+    SkipSpaces();
 
     K := 0;
-    ch := Command[I];
+    ch := Text[pText];
     while ch != char(0) do
       Dest[K] := ch;
       K:=K+1;
@@ -1020,8 +1049,8 @@ word GetCmdLine () is
       //  Stop(); // @eWRONGPARM
       //end
 
-      I:=I+1;
-      ch := Command[I];
+      pText:=pText+1;
+      ch := Text[pText];
       if ch = ' ' then ch := char(0); end
     end
 
@@ -1044,7 +1073,7 @@ end
 begin
   inline 0xED, 0x73, SP;  // LD   (SP), SP
 
-  inline 0x11, Command;   // LD   DE, Command
+  inline 0x11, Text;      // LD   DE, Text
   inline 0x5B, 0x7E;      // LOOP: LD.LIL A, (HL)
   inline 0x12;            // LD   (DE), A
   inline 0x5B, 0x23;      // INC.LIL HL
@@ -1053,35 +1082,36 @@ begin
   inline 0x20, 0xF7;      // JR   NZ, LOOP
 
   aCode := 0x0000;
-  aData := 0x8000;
+  aData := 0xC000;
+  Init();
 
   GetCmdLine();
   if Src[0] = char(0) then
     puts("TinyContext v1.0 for Z80");
     putc(char(13)); putc(char(10));
-    puts("ctx prog[.ctx] [prog.bin]");
+    puts("ctx [-cCodeAdr] [-dDataAdr] prog[.ctx] [prog.bin]");
     putc(char(13)); putc(char(10));
     halt();
   end
 
-  Init();
-
   hFile := open();
   if hFile = 0 then puts("can't open source"); halt(); end
 
-    pText:=0;
-    nText:=0;
-    nLine:=1;
+  pText:=0;
+  nText:=0;
+  nLine:=1;
+  nCode := aCode;
+  nData := aData;
 
-    Emi1(0xC3);       // jp start
-    nCode:=nCode+2;
+  Emi1(0xC3);       // JP start
+  nCode:=nCode+2;
 
-    while nCode!=64 do Emi1(0x00); end  // .align 64
-    Emi1(byte('M'));  // MOS header
-    Emi1(byte('O'));
-    Emi1(byte('S'));
-    Emi1(0x00);
-    Emi1(0x00);  // run mode (0: Z80, 1: ADL)
+  while nCode-aCode < 64 do Emi1(0x00); end  // ALIGN 64
+  Emi1(byte('M'));  // MOS header
+  Emi1(byte('O'));
+  Emi1(byte('S'));
+  Emi1(0x00);
+  Emi1(0x00);  // run mode (0: Z80, 1: ADL)
 
     Scan();
     while Comp(31)!=0 do     // !begin
@@ -1147,6 +1177,8 @@ begin
     puts("data "); puthex(aData); putc('-'); puthex(nData-1);
     putc(':'); puthex(nData-aData); putc(char(13)); putc(char(10));
 
-    if save() != 0 then putc('S'); end
+    if save() != 0 then
+      puts("can't save"); putc(char(13)); putc(char(10));
+    end
 
   end
